@@ -1,0 +1,27 @@
+Sprint Planning Meeting - Authentication & Security
+Date: 2024-01-15
+Participants: Sarah (PM), Mike (Tech Lead), Lisa (Security Engineer), Tom (Backend Dev)
+
+Sarah: Alright team, let's talk about our authentication system. We've been getting a lot of complaints from users about the login experience.
+
+Lisa: Yes, the biggest pain point right now is that users are getting locked out after failed password attempts with no clear way to recover. We're seeing about 200 support tickets a week just for account lockouts.
+
+Mike: That's a real problem. I think we need to implement a proper multi-factor authentication system. Right now we only support password-based login, and that's not meeting our enterprise customers' security requirements.
+
+Tom: I agree. Several enterprise prospects have told us they can't adopt our platform without MFA support. They specifically asked for TOTP authenticator app support and SMS fallback.
+
+Sarah: So the decision is: we will implement multi-factor authentication with TOTP as the primary method and SMS as a fallback option. Mike, can you estimate the effort?
+
+Mike: I'd say about 3 sprints for full implementation including the UI changes.
+
+Lisa: Another pain point - our password reset flow sends emails that often end up in spam folders. Users wait 10+ minutes and then give up. We should switch to a more reliable email provider or add an alternative reset method.
+
+Tom: What about adding a "magic link" login option? That solves both the MFA problem for less security-conscious users and gives an alternative to password reset.
+
+Sarah: Good idea. Let's add that as a feature request. Also, I want to request a session timeout configuration feature. Right now it's hardcoded to 30 minutes and our enterprise customers want to set their own timeout values based on their compliance requirements.
+
+Mike: Decision: we'll make the session timeout configurable per organization, with a minimum of 5 minutes and maximum of 24 hours. Default stays at 30 minutes.
+
+Lisa: One more thing - I've noticed that our current JWT tokens don't have proper rotation. If a token is compromised, it stays valid until expiry. We need a token revocation mechanism.
+
+Sarah: Let's capture that. So to summarize our decisions: implement MFA with TOTP and SMS, make session timeout configurable, and add token revocation. Pain points are account lockouts and unreliable password reset emails. Feature requests are magic link login and configurable session timeouts.

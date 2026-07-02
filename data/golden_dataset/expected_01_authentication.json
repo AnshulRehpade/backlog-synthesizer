@@ -1,0 +1,61 @@
+[
+  {
+    "title": "Implement Multi-Factor Authentication (MFA)",
+    "user_story": "As an enterprise customer, I want to use multi-factor authentication when logging in, so that my organization meets its security compliance requirements.",
+    "acceptance_criteria": [
+      {"description": "Users can enable TOTP-based authenticator app as a second factor during login"},
+      {"description": "Users can configure SMS as a fallback MFA method when TOTP is unavailable"},
+      {"description": "MFA setup wizard guides users through enrolling their authenticator app with a QR code"},
+      {"description": "Organization administrators can enforce MFA for all users in their tenant"},
+      {"description": "Login flow prompts for second factor only after successful password verification"}
+    ],
+    "tags": ["authentication", "security", "enterprise"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Implement Magic Link Login",
+    "user_story": "As a user, I want to log in via a magic link sent to my email, so that I can access my account without remembering a password.",
+    "acceptance_criteria": [
+      {"description": "Users can request a magic link from the login page by entering their email address"},
+      {"description": "Magic link email is delivered within 30 seconds of request"},
+      {"description": "Magic link expires after 15 minutes if unused"},
+      {"description": "Clicking the magic link authenticates the user and creates a valid session"}
+    ],
+    "tags": ["authentication", "user-experience"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Configurable Session Timeout per Organization",
+    "user_story": "As an organization administrator, I want to configure session timeout duration for my users, so that I can meet our compliance requirements for inactive session handling.",
+    "acceptance_criteria": [
+      {"description": "Administrators can set session timeout between 5 minutes and 24 hours"},
+      {"description": "Default session timeout remains at 30 minutes for organizations that do not customize it"},
+      {"description": "Users are warned 2 minutes before their session expires with an option to extend"},
+      {"description": "Session timeout setting applies to all users within the organization"}
+    ],
+    "tags": ["authentication", "enterprise", "compliance"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Implement Token Revocation Mechanism",
+    "user_story": "As a security engineer, I want to revoke compromised JWT tokens immediately, so that stolen tokens cannot be used to access the system.",
+    "acceptance_criteria": [
+      {"description": "Administrators can revoke a specific user's active tokens from the security dashboard"},
+      {"description": "Revoked tokens are rejected on subsequent API requests within 60 seconds"},
+      {"description": "Token revocation is logged in the security audit trail with timestamp and admin identity"}
+    ],
+    "tags": ["security", "authentication"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Improve Account Lockout Recovery Flow",
+    "user_story": "As a user who has been locked out, I want a clear and reliable self-service recovery path, so that I can regain access to my account without contacting support.",
+    "acceptance_criteria": [
+      {"description": "Locked out users see a clear message explaining why they are locked out and how to recover"},
+      {"description": "Users can initiate account recovery via a secondary email or phone number"},
+      {"description": "Recovery flow does not rely solely on email delivery to prevent spam folder issues"}
+    ],
+    "tags": ["authentication", "user-experience"],
+    "needs_refinement": true
+  }
+]

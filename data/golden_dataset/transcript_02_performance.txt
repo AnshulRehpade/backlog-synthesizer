@@ -1,0 +1,33 @@
+Engineering Retrospective - Performance & Scalability Issues
+Date: 2024-02-08
+Participants: Alex (Engineering Manager), Priya (Senior Backend Dev), Carlos (DevOps), Nina (Frontend Dev)
+
+Alex: Let's start with the performance issues we saw last week during the product launch. We had significant downtime and I want to understand what happened.
+
+Priya: The main pain point is our database query performance. When we hit 10,000 concurrent users during the launch event, our main dashboard endpoint started timing out. The average response time went from 200ms to over 8 seconds. The root cause is that we're doing full table scans on the orders table which now has 50 million rows.
+
+Carlos: From the infrastructure side, the pain point is that our auto-scaling is too slow. It takes about 4 minutes for new instances to come online, but the traffic spike happened in under 30 seconds. By the time we scaled up, users were already getting 503 errors.
+
+Nina: On the frontend, users are experiencing significant jank when loading the analytics dashboard. We're rendering 5000+ data points on a single chart and it freezes the browser for 3-4 seconds. This is a major pain point for our power users who rely on the analytics view.
+
+Alex: So what are we going to do about these issues?
+
+Priya: Decision: We will add composite indexes on the orders table for the most common query patterns - specifically on (customer_id, created_at) and (status, created_at). I've already tested this in staging and it brings query time from 8 seconds down to 50 milliseconds.
+
+Carlos: For the scaling issue, I'd like to request a feature: predictive auto-scaling based on scheduled events. If we know a launch is happening, we should be able to pre-warm instances 15 minutes before the expected traffic spike.
+
+Alex: That's approved. Let's build that.
+
+Carlos: Decision: We will also reduce the instance startup time by switching to pre-built AMIs with all dependencies pre-installed. This should bring startup from 4 minutes to under 45 seconds.
+
+Nina: For the frontend rendering issue, I'd like to implement virtual scrolling and data aggregation for charts with more than 1000 data points. Instead of rendering all 5000 points, we aggregate to 500 visible points and load detail on zoom.
+
+Alex: Good plan. Any other feature requests?
+
+Priya: Yes - I want to request a read replica setup for our reporting queries. Right now, analytics queries and transactional queries compete for the same database connection pool. Splitting them would prevent reporting from impacting user-facing operations.
+
+Alex: Decision: We will implement a read replica architecture. Reporting and analytics queries will go to the replica, transactional queries stay on the primary. Target completion: end of Q1.
+
+Nina: One more thing - can we add real-time performance monitoring alerts? Right now we only notice performance degradation when users complain. I want automated alerts when p95 latency exceeds 500ms on any endpoint.
+
+Alex: Agreed, let's add that to the backlog.

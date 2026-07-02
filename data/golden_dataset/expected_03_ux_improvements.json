@@ -1,0 +1,64 @@
+[
+  {
+    "title": "Redesign Onboarding Flow to 5 Steps",
+    "user_story": "As a new user, I want to complete initial setup quickly in 5 steps or fewer, so that I can start using the product without frustration or abandonment.",
+    "acceptance_criteria": [
+      {"description": "Onboarding wizard has a maximum of 5 essential steps"},
+      {"description": "Integration setup is moved to an optional wizard accessible from the dashboard"},
+      {"description": "Users can complete onboarding without needing API keys or external credentials"},
+      {"description": "Session does not expire during the onboarding flow within a 30-minute window"},
+      {"description": "Onboarding completion rate is tracked and reported in analytics"}
+    ],
+    "tags": ["onboarding", "user-experience"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Build Notification Preferences Center",
+    "user_story": "As a user, I want to control which notifications I receive and through which channels, so that I am not overwhelmed with irrelevant alerts.",
+    "acceptance_criteria": [
+      {"description": "Users can select notification channel (email, in-app, push, or none) per event type"},
+      {"description": "Users can configure quiet hours during which non-critical notifications are suppressed"},
+      {"description": "Non-urgent notifications can be batched into a configurable daily digest"},
+      {"description": "Critical alerts bypass quiet hours and digest settings"}
+    ],
+    "tags": ["notifications", "user-experience"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Implement Bulk Actions for Task List",
+    "user_story": "As an enterprise user with many tasks, I want to select multiple items and perform actions in bulk, so that I can manage large task lists efficiently.",
+    "acceptance_criteria": [
+      {"description": "Users can select multiple tasks using checkboxes or shift-click"},
+      {"description": "Bulk actions include archive, delete, add tag, remove tag, reassign, and change status"},
+      {"description": "Keyboard shortcuts are available for common bulk operations"},
+      {"description": "Confirmation dialog shows the number of affected items before destructive actions"},
+      {"description": "Bulk operations complete within 5 seconds for up to 100 selected items"}
+    ],
+    "tags": ["productivity", "enterprise", "user-experience"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Fix Dark Mode Consistency Across All Pages",
+    "user_story": "As a user who prefers dark mode, I want consistent dark theme rendering across all pages, so that I can work comfortably without encountering unreadable text or jarring white backgrounds.",
+    "acceptance_criteria": [
+      {"description": "All color values are migrated from hardcoded values to CSS custom properties"},
+      {"description": "Dark mode renders correctly on all pages without white backgrounds or unreadable text"},
+      {"description": "Legacy components are audited and updated to use the shared color variable system"},
+      {"description": "Visual regression tests cover dark mode for all major page templates"}
+    ],
+    "tags": ["accessibility", "frontend", "dark-mode"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Add Multi-Format Data Export",
+    "user_story": "As a user, I want to export my data in CSV, PDF, and JSON formats, so that I can share reports with stakeholders and integrate with other tools.",
+    "acceptance_criteria": [
+      {"description": "Users can export data in CSV format for spreadsheet use"},
+      {"description": "Users can export data in PDF format suitable for stakeholder presentations"},
+      {"description": "Users can export data in JSON format for programmatic integrations"},
+      {"description": "Export format selection is available from a single export button with dropdown"}
+    ],
+    "tags": ["data-export", "integrations"],
+    "needs_refinement": false
+  }
+]

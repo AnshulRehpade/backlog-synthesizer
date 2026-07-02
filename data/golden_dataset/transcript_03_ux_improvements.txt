@@ -1,0 +1,35 @@
+Product Review Meeting - UX Improvements & User Feedback
+Date: 2024-03-01
+Participants: Jordan (UX Designer), Rachel (Product Owner), Dev (Frontend Lead), Kim (Customer Success)
+
+Rachel: We've collected feedback from the last quarter's user interviews and NPS surveys. Let's go through the top issues and decide on priorities.
+
+Kim: The number one pain point from customers is our onboarding flow. New users are dropping off at a 60% rate during the initial setup wizard. They say it's too long - 12 steps is way too many. People get frustrated and abandon the process before they ever see the value of the product.
+
+Jordan: I've analyzed the funnel data and the biggest drop-off happens between steps 4 and 6, which is where we ask users to configure integrations. Most users don't have that information handy during sign-up. They need to go find API keys from other tools and by the time they come back, their session has expired.
+
+Dev: That's a terrible experience. We should let users skip the integration setup and come back to it later.
+
+Rachel: Decision: We will redesign the onboarding to have a maximum of 5 essential steps, with integration setup moved to a separate optional wizard that users can access from their dashboard at any time.
+
+Kim: Another pain point is our notification system. Users are getting overwhelmed with emails and in-app notifications. One customer told us they received 47 notification emails in a single day. They ended up marking us as spam which means they miss critical alerts too.
+
+Jordan: I'd like to request a notification preferences center where users can choose notification channels per event type - email, in-app, push, or none. They should also be able to set quiet hours and batch non-urgent notifications into a daily digest.
+
+Rachel: Love it. Let's make that happen.
+
+Dev: From a technical standpoint, we also need a feature for bulk actions in the task list view. Users with hundreds of items are requesting the ability to select multiple items and perform actions like archive, tag, or reassign in bulk. Right now they have to click each one individually which is a major productivity killer.
+
+Kim: Oh yes, that comes up in almost every customer call. Enterprise users especially need this.
+
+Rachel: Decision: We will implement multi-select with bulk actions. The supported actions will be: archive, delete, add tag, remove tag, reassign, and change status. We'll add keyboard shortcuts for power users too.
+
+Jordan: One more pain point - our dark mode implementation is inconsistent. Some pages render correctly but others have white backgrounds or unreadable text in dark mode. Users who work at night or have visual sensitivities find this really frustrating.
+
+Dev: That's because we're using hardcoded colors in some legacy components instead of CSS variables.
+
+Rachel: Decision: We will audit all components and migrate to CSS custom properties for all color values. Dark mode must be fully consistent across all pages within this quarter.
+
+Kim: Last feature request from me - customers want a way to export their data in multiple formats. Right now we only support CSV export but they need PDF reports for stakeholder presentations and JSON export for integrations with their internal tools.
+
+Rachel: Good. Let's add multi-format export to the roadmap. We'll support CSV, PDF, and JSON initially.

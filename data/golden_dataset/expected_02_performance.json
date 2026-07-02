@@ -1,0 +1,72 @@
+[
+  {
+    "title": "Add Database Indexes for Order Query Optimization",
+    "user_story": "As a backend developer, I want composite indexes on the orders table for common query patterns, so that dashboard endpoint response times stay under 200ms even at scale.",
+    "acceptance_criteria": [
+      {"description": "Composite index on (customer_id, created_at) is added to the orders table"},
+      {"description": "Composite index on (status, created_at) is added to the orders table"},
+      {"description": "Dashboard endpoint responds within 200ms for up to 10,000 concurrent users"},
+      {"description": "Index creation does not cause downtime or lock the orders table during migration"}
+    ],
+    "tags": ["performance", "database"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Implement Predictive Auto-Scaling for Scheduled Events",
+    "user_story": "As a DevOps engineer, I want the infrastructure to pre-warm instances before known traffic spikes, so that users do not experience 503 errors during product launches.",
+    "acceptance_criteria": [
+      {"description": "System allows scheduling a scale-up event tied to a future date and time"},
+      {"description": "Pre-warming starts at least 15 minutes before the scheduled event"},
+      {"description": "Instances are fully healthy and serving traffic before the expected spike begins"},
+      {"description": "Scale-up events are logged with instance count and readiness timestamp"}
+    ],
+    "tags": ["infrastructure", "auto-scaling", "reliability"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Reduce Instance Startup Time with Pre-Built AMIs",
+    "user_story": "As a DevOps engineer, I want instances to start in under 45 seconds using pre-built images, so that auto-scaling responds fast enough to handle sudden traffic spikes.",
+    "acceptance_criteria": [
+      {"description": "AMI build pipeline produces images with all dependencies pre-installed"},
+      {"description": "New instances reach healthy state within 45 seconds of launch"},
+      {"description": "AMI build is triggered automatically on dependency updates"}
+    ],
+    "tags": ["infrastructure", "auto-scaling"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Implement Chart Data Aggregation and Virtual Scrolling",
+    "user_story": "As a power user, I want the analytics dashboard to render smoothly even with large datasets, so that I can analyze trends without browser freezing.",
+    "acceptance_criteria": [
+      {"description": "Charts with more than 1000 data points are automatically aggregated to 500 visible points"},
+      {"description": "Users can zoom into a chart section to see full-resolution data for that range"},
+      {"description": "Dashboard renders without jank or frame drops exceeding 100ms"},
+      {"description": "Aggregation algorithm preserves peaks, valleys, and trend direction"}
+    ],
+    "tags": ["frontend", "performance", "analytics"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Implement Read Replica for Reporting Queries",
+    "user_story": "As a backend developer, I want analytics queries routed to a read replica, so that reporting workloads do not degrade user-facing transactional performance.",
+    "acceptance_criteria": [
+      {"description": "Read replica is configured with replication lag under 5 seconds"},
+      {"description": "Reporting and analytics queries are automatically routed to the replica"},
+      {"description": "Transactional queries continue using the primary database exclusively"},
+      {"description": "Connection pool for replica is separate from the primary pool"}
+    ],
+    "tags": ["database", "performance", "infrastructure"],
+    "needs_refinement": false
+  },
+  {
+    "title": "Add Real-Time Performance Monitoring Alerts",
+    "user_story": "As a DevOps engineer, I want automated alerts when endpoint latency degrades, so that the team is notified before users start complaining.",
+    "acceptance_criteria": [
+      {"description": "Alert fires when p95 latency exceeds 500ms on any monitored endpoint"},
+      {"description": "Alerts are delivered via configured channels (Slack, email, PagerDuty)"},
+      {"description": "Alert includes endpoint name, current p95 value, and time of threshold breach"}
+    ],
+    "tags": ["monitoring", "reliability"],
+    "needs_refinement": false
+  }
+]
