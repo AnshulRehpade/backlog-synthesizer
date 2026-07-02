@@ -71,18 +71,20 @@ Item type: {item_type}
 Item text: {item_text}
 Stakeholder: {stakeholder}
 Section heading: {section_heading}
+Extracted tags: {extracted_tags}
 
 Generate a JSON object with these fields:
 - "title": A concise title for the story (max 80 characters)
 - "user_story": In the format "As a [role], I want [goal], so that [benefit]"
 - "acceptance_criteria": An array of 2-10 objects, each with a "description" field describing a single testable condition
-- "tags": An array of 1-5 keyword tags relevant to this story
+- "tags": An array of 1-5 keyword tags relevant to this story. Start with the extracted tags provided above and add more if needed.
 
 Rules:
 - The user_story MUST follow the format "As a [role], I want [goal], so that [benefit]"
 - Generate between 2 and 10 acceptance criteria (inclusive)
 - Generate between 1 and 5 tags (inclusive)
 - Tags should be lowercase, hyphenated keywords (e.g., "user-auth", "data-export")
+- Prefer using the extracted tags above when they are relevant
 - If the item text is too vague to determine a specific role, goal, or benefit, use "[placeholder]" for the missing part
 
 Respond with ONLY the JSON object, no other text."""
@@ -97,11 +99,13 @@ def _build_prompt(item: ExtractedItem) -> str:
     Returns:
         A formatted prompt string.
     """
+    extracted_tags = ", ".join(item.tags) if item.tags else "none"
     return STORY_GENERATION_PROMPT_TEMPLATE.format(
         item_type=item.item_type,
         item_text=item.text,
         stakeholder=item.stakeholder or "Unknown",
         section_heading=item.section_heading or "N/A",
+        extracted_tags=extracted_tags,
     )
 
 

@@ -24,6 +24,7 @@ class ExtractedItem(BaseModel):
     stakeholder: str | None = None
     section_heading: str | None = None
     type_classification: str | None = None  # for architecture items
+    tags: list[str] = Field(default_factory=list)  # extracted topic/feature tags
 
 
 class DocumentError(BaseModel):

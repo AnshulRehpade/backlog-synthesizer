@@ -236,10 +236,10 @@ class GapDetectionAgent:
 
         Pre-filtering strategy:
         1. Exclude closed/archived tickets via status metadata filter
-        2. Run filtered semantic search on the remaining set
+        2. If the item has extracted tags, add tag-based filtering to narrow scope
+        3. Run filtered semantic search on the remaining set
 
-        This reduces the search space significantly for large backlogs
-        where many tickets are already closed.
+        This reduces the search space significantly for large backlogs.
 
         Args:
             item: The extracted item to process.
@@ -252,8 +252,8 @@ class GapDetectionAgent:
             self._embedding_tool.generate_embedding, item.text
         )
 
-        # Build pre-filter: exclude closed/archived tickets
-        where_filter = self._build_status_filter()
+        # Build pre-filter: exclude closed/archived + optional tag filter
+        where_filter = self._build_search_filter(item)
 
         # Query vector store with pre-filtering
         results: list[SearchResult] = await asyncio.to_thread(
@@ -295,6 +295,36 @@ class GapDetectionAgent:
             has_contradiction=has_contradiction,
             contradiction_description=contradiction_description,
         )
+
+    def _build_search_filter(self, item: ExtractedItem) -> dict | None:
+        """Build a combined ChromaDB where filter using status exclusion and tag matching.
+
+        Strategy:
+        1. Always exclude closed/archived/done/cancelled tickets
+        2. If item has extracted tags, add tag-based filter using $contains on
+           the comma-separated tags string stored in metadata
+
+        Args:
+            item: The extracted item whose tags may be used for filtering.
+
+        Returns:
+            A where clause dict for ChromaDB, or None if no filter applicable.
+        """
+        status_filter = self._build_status_filter()
+
+        # If item has tags, try to add tag-based filtering
+        if item.tags:
+            # Use the first (most relevant) tag for filtering
+            # ChromaDB $contains checks if the metadata string contains the substring
+            tag_filter = {"tags": {"$contains": item.tags[0]}}
+
+            if status_filter:
+                # Combine status and tag filters
+                status_clauses = status_filter.get("$and", [status_filter])
+                return {"$and": [*status_clauses, tag_filter]}
+            return tag_filter
+
+        return status_filter
 
     def _build_status_filter(self) -> dict | None:
         """Build a ChromaDB where filter to exclude closed/archived tickets.

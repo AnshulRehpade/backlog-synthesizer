@@ -185,6 +185,8 @@ class ParserAgent:
             '- "confidence": a float between 0.0 and 1.0 indicating confidence\n'
             '- "char_offset": integer character offset within the chunk where the item starts\n'
             '- "stakeholder": the person or role affected/requesting (null if not identifiable)\n'
+            '- "tags": an array of 1-5 lowercase hyphenated keyword tags identifying the topic/feature area '
+            '(e.g., ["authentication", "session-management", "onboarding"])\n'
             "If no items are found, return an empty array: []\n"
             "Return ONLY valid JSON, no additional text."
         )
@@ -227,6 +229,12 @@ class ParserAgent:
                 if not isinstance(entry, dict):
                     continue
                 try:
+                    # Extract and normalize tags
+                    raw_tags = entry.get("tags", [])
+                    if not isinstance(raw_tags, list):
+                        raw_tags = []
+                    tags = [str(t).lower().strip() for t in raw_tags if t][:5]
+
                     item = ExtractedItem(
                         item_type=entry.get("item_type", "decision"),
                         text=entry.get("text", ""),
@@ -234,6 +242,7 @@ class ParserAgent:
                         char_offset=entry.get("char_offset"),
                         confidence=float(entry.get("confidence", 0.5)),
                         stakeholder=entry.get("stakeholder"),
+                        tags=tags,
                     )
                     # Skip items with empty text
                     if not item.text:
@@ -273,6 +282,8 @@ class ParserAgent:
             '- "char_offset": integer character offset within the chunk where the item starts\n'
             '- "section_heading": the section heading this item belongs to (null if unknown)\n'
             '- "type_classification": one of "constraint", "decision", "principle"\n'
+            '- "tags": an array of 1-5 lowercase hyphenated keyword tags identifying the topic/feature area '
+            '(e.g., ["database", "performance", "api-design"])\n'
             "If no items are found, return an empty array: []\n"
             "Return ONLY valid JSON, no additional text."
         )
@@ -320,6 +331,12 @@ class ParserAgent:
                 if not isinstance(entry, dict):
                     continue
                 try:
+                    # Extract and normalize tags
+                    raw_tags = entry.get("tags", [])
+                    if not isinstance(raw_tags, list):
+                        raw_tags = []
+                    tags = [str(t).lower().strip() for t in raw_tags if t][:5]
+
                     item = ExtractedItem(
                         item_type="constraint",
                         text=entry.get("text", ""),
@@ -328,6 +345,7 @@ class ParserAgent:
                         confidence=float(entry.get("confidence", 0.5)),
                         section_heading=entry.get("section_heading"),
                         type_classification=entry.get("type_classification"),
+                        tags=tags,
                     )
                     # Skip items with empty text
                     if not item.text:
