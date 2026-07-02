@@ -1,5 +1,6 @@
 """Parser Agent for document ingestion, chunking, and information extraction."""
 
+import asyncio
 import json
 import logging
 from html.parser import HTMLParser
@@ -84,6 +85,9 @@ class ParserAgent:
     async def parse_documents(self, documents: list[InputDocument]) -> ExtractionResult:
         """Parse all input documents and extract structured items.
 
+        When multiple documents are provided, they are processed concurrently
+        using asyncio.gather() for improved throughput.
+
         Args:
             documents: List of input documents to process.
 
@@ -93,30 +97,62 @@ class ParserAgent:
         all_items: list[ExtractedItem] = []
         all_errors: list[DocumentError] = []
 
+        # Ingest documents (synchronous I/O — chunk and classify)
+        doc_tasks: list[tuple[InputDocument, str | None, DocumentError | None]] = []
         for doc in documents:
             text, error = self._ingest_document(doc)
+            doc_tasks.append((doc, text, error))
+
+        # Collect errors from ingestion
+        processable: list[tuple[InputDocument, str]] = []
+        for doc, text, error in doc_tasks:
             if error is not None:
                 all_errors.append(error)
-                continue
+            elif text is not None:
+                processable.append((doc, text))
 
-            assert text is not None
-            chunks = self._chunk_text(text)
+        # Extract from all documents concurrently
+        if processable:
+            extraction_coros = [
+                self._extract_document_async(doc, text) for doc, text in processable
+            ]
+            results = await asyncio.gather(*extraction_coros, return_exceptions=True)
 
-            if self._is_transcript(doc.document_type):
-                items = self._extract_from_transcript(chunks)
-            elif doc.document_type == DocumentType.ARCHITECTURE_HTML:
-                items = self._extract_from_architecture(chunks)
-            else:
-                # Unsupported type for extraction — skip
-                continue
-
-            all_items.extend(items)
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.warning("Document extraction failed: %s", result)
+                    continue
+                all_items.extend(result)
 
         metadata: dict = {}
         if not all_items:
             metadata["note"] = "Document processed but yielded no extractable items"
 
         return ExtractionResult(items=all_items, errors=all_errors, metadata=metadata)
+
+    async def _extract_document_async(
+        self, doc: InputDocument, text: str
+    ) -> list[ExtractedItem]:
+        """Extract items from a single document asynchronously.
+
+        Chunks the text and runs LLM extraction in a thread pool to avoid
+        blocking the event loop.
+
+        Args:
+            doc: The input document metadata.
+            text: The ingested text content.
+
+        Returns:
+            List of extracted items from this document.
+        """
+        chunks = self._chunk_text(text)
+
+        if self._is_transcript(doc.document_type):
+            return await asyncio.to_thread(self._extract_from_transcript, chunks)
+        elif doc.document_type == DocumentType.ARCHITECTURE_HTML:
+            return await asyncio.to_thread(self._extract_from_architecture, chunks)
+        else:
+            return []
 
     def _is_transcript(self, doc_type: DocumentType) -> bool:
         """Check if a document type is a meeting transcript."""

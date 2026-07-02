@@ -112,6 +112,7 @@ class OrchestratorAgent:
             A SessionResult with the pipeline outcome.
         """
         session_id = inputs.session_id
+        pipeline_start = time.time()
 
         # Create session state
         session_state = SessionState(
@@ -212,6 +213,10 @@ class OrchestratorAgent:
             )
 
         duration_ms = int((time.time() - start_time) * 1000)
+        logger.info(
+            "ParserAgent completed: %d documents → %d items in %dms",
+            len(non_backlog_docs), len(extraction_result.items), duration_ms,
+        )
         self._log_agent_action(
             session_id, "ParserAgent",
             f"Documents: {len(non_backlog_docs)}",
@@ -291,6 +296,11 @@ class OrchestratorAgent:
             )
 
         duration_ms = int((time.time() - start_time) * 1000)
+        logger.info(
+            "GapDetectionAgent completed: %d items → new=%d, dup=%d, conflict=%d in %dms",
+            len(extraction_result.items), gap_report.total_new,
+            gap_report.total_duplicates, gap_report.total_conflicts, duration_ms,
+        )
         self._log_agent_action(
             session_id, "GapDetectionAgent",
             f"Items: {len(extraction_result.items)}",
@@ -406,6 +416,10 @@ class OrchestratorAgent:
             output_summary,
             duration_ms,
         )
+        logger.info(
+            "StoryWriterAgent completed: %d entries → %d stories, %d epics in %dms",
+            len(gap_report.entries), len(stories), len(epics), duration_ms,
+        )
 
         # Store final output (Requirement 2.4)
         session_state.story_output = story_output
@@ -421,6 +435,18 @@ class OrchestratorAgent:
         session_state.errors = errors
         self._memory.store_intermediate(session_id, "session_state", session_state.model_dump())
 
+        pipeline_total_ms = int((time.time() - pipeline_start) * 1000)
+        logger.info(
+            "Pipeline completed: session=%s, status=%s, items=%d, stories=%d, "
+            "epics=%d, total_time=%dms",
+            session_id,
+            session_state.status,
+            len(extraction_result.items) if extraction_result else 0,
+            len(stories),
+            len(epics),
+            pipeline_total_ms,
+        )
+
         return SessionResult(
             session_id=session_id,
             status=session_state.status,
@@ -428,6 +454,8 @@ class OrchestratorAgent:
             session_state=session_state,
             errors=errors,
         )
+
+        # --- End of pipeline --- timing is logged above per agent
 
     def _validate_backlog_tickets(
         self,

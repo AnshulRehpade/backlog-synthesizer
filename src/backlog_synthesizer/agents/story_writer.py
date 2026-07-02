@@ -269,9 +269,8 @@ class StoryWriterAgent:
         """Generate user stories from deduplicated gap report entries.
 
         Filters entries to only "new" and "conflict" classifications, then
-        generates a structured user story for each item using LLM generation.
-        Items with insufficient detail produce placeholder stories tagged with
-        "needs-refinement".
+        generates structured user stories for all eligible items concurrently
+        using asyncio.gather() for improved throughput.
 
         Args:
             items: List of GapReportEntry items from the gap detection phase.
@@ -289,13 +288,11 @@ class StoryWriterAgent:
             logger.info("No eligible items for story generation.")
             return []
 
-        stories: list[UserStory] = []
+        # Generate all stories concurrently
+        coros = [self._generate_single_story(entry) for entry in eligible_entries]
+        stories = await asyncio.gather(*coros)
 
-        for entry in eligible_entries:
-            story = await self._generate_single_story(entry)
-            stories.append(story)
-
-        return stories
+        return list(stories)
 
     async def _generate_single_story(self, entry: GapReportEntry) -> UserStory:
         """Generate a single user story from a gap report entry.
