@@ -136,7 +136,8 @@ class OrchestratorAgent:
                     "item_id": ticket.id,
                     "content": f"{ticket.title} {ticket.description}",
                     "status": ticket.status,
-                    "tags": ticket.tags,
+                    "tags": ",".join(ticket.tags) if ticket.tags else "",
+                    "created_at": ticket.created_at.isoformat() if ticket.created_at else "",
                 }
                 for ticket in valid_tickets
             ]

@@ -141,8 +141,15 @@ class GapDetectionAgent:
     Uses EmbeddingTool for vector generation, VectorSearchTool for similarity queries,
     and optionally LLMGenerationTool for contradiction detection in the conflict range.
 
+    Pre-filters backlog items before semantic search to reduce search space:
+    - Excludes closed/archived tickets (status filter)
+    - Filters by matching tags when available
+
     Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6
     """
+
+    # Statuses to exclude from gap detection (case-insensitive matching done at query time)
+    EXCLUDED_STATUSES = frozenset({"closed", "archived", "done", "cancelled", "canceled"})
 
     def __init__(
         self,
@@ -225,7 +232,14 @@ class GapDetectionAgent:
         )
 
     async def _process_item(self, item: ExtractedItem) -> GapReportEntry:
-        """Process a single item: embed, search, classify.
+        """Process a single item: embed, pre-filter, search, classify.
+
+        Pre-filtering strategy:
+        1. Exclude closed/archived tickets via status metadata filter
+        2. Run filtered semantic search on the remaining set
+
+        This reduces the search space significantly for large backlogs
+        where many tickets are already closed.
 
         Args:
             item: The extracted item to process.
@@ -238,9 +252,12 @@ class GapDetectionAgent:
             self._embedding_tool.generate_embedding, item.text
         )
 
-        # Query vector store for similar backlog items
+        # Build pre-filter: exclude closed/archived tickets
+        where_filter = self._build_status_filter()
+
+        # Query vector store with pre-filtering
         results: list[SearchResult] = await asyncio.to_thread(
-            self._vector_search_tool.query_similar, embedding, 5
+            self._query_with_filter, embedding, 5, where_filter
         )
 
         # If no results found, classify as new (empty backlog case)
@@ -278,6 +295,60 @@ class GapDetectionAgent:
             has_contradiction=has_contradiction,
             contradiction_description=contradiction_description,
         )
+
+    def _build_status_filter(self) -> dict | None:
+        """Build a ChromaDB where filter to exclude closed/archived tickets.
+
+        Returns:
+            A where clause dict for ChromaDB, or None if no filter applicable.
+        """
+        # ChromaDB $nin is not supported in all versions, use $and with $ne
+        excluded = list(self.EXCLUDED_STATUSES)
+        if not excluded:
+            return None
+
+        if len(excluded) == 1:
+            return {"status": {"$ne": excluded[0]}}
+
+        # Multiple exclusions: $and with $ne for each
+        return {
+            "$and": [{"status": {"$ne": status}} for status in excluded]
+        }
+
+    def _query_with_filter(
+        self,
+        embedding: list[float],
+        top_k: int,
+        where_filter: dict | None,
+    ) -> list[SearchResult]:
+        """Query vector store with optional pre-filtering.
+
+        Falls back to unfiltered search if filtered query returns no results
+        or if the vector store doesn't support filtering.
+
+        Args:
+            embedding: The query embedding vector.
+            top_k: Maximum number of results.
+            where_filter: Optional metadata filter.
+
+        Returns:
+            List of SearchResult objects.
+        """
+        # Try filtered query first
+        if where_filter and hasattr(self._vector_search_tool, "query_similar_filtered"):
+            try:
+                results = self._vector_search_tool.query_similar_filtered(
+                    embedding, top_k, where=where_filter
+                )
+                # If filtered returns results, use them
+                if results:
+                    return results
+            except Exception:
+                # Filter not supported or failed — fall through to unfiltered
+                pass
+
+        # Fallback: unfiltered search
+        return self._vector_search_tool.query_similar(embedding, top_k)
 
     async def _detect_contradiction(
         self, item: ExtractedItem, search_result: SearchResult

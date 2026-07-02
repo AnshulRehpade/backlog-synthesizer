@@ -102,6 +102,31 @@ class VectorSearchTool(Protocol):
         """
         ...
 
+    def query_similar_filtered(
+        self,
+        embedding: list[float],
+        top_k: int,
+        where: dict | None = None,
+    ) -> list[SearchResult]:
+        """Query the vector store with optional metadata filtering.
+
+        When `where` is provided, only items matching the filter criteria
+        are considered for similarity search, reducing the search space.
+
+        Args:
+            embedding: The query embedding vector.
+            top_k: Maximum number of results to return.
+            where: Optional metadata filter dict (e.g., {"status": {"$ne": "closed"}}).
+                   Syntax depends on the underlying vector store.
+
+        Returns:
+            List of SearchResult objects ordered by similarity score (descending).
+
+        Raises:
+            ToolError: If the query fails.
+        """
+        ...
+
     def store(self, item_id: str, embedding: list[float], metadata: dict) -> None:
         """Store an embedding with associated metadata.
 

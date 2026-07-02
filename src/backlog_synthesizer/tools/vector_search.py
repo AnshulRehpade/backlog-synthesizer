@@ -140,6 +140,35 @@ class ChromaVectorSearchTool:
             PermanentToolError: If the input is invalid.
             TransientToolError: If the query fails due to a transient issue.
         """
+        return self.query_similar_filtered(embedding, top_k, where=None)
+
+    def query_similar_filtered(
+        self,
+        embedding: list[float],
+        top_k: int,
+        where: dict | None = None,
+    ) -> list[SearchResult]:
+        """Query the vector store with optional metadata filtering.
+
+        When `where` is provided, ChromaDB filters items BEFORE similarity
+        computation, reducing the search space for large backlogs.
+
+        Supports ChromaDB where clause syntax:
+            {"status": {"$ne": "closed"}}
+            {"$and": [{"status": {"$ne": "closed"}}, {"status": {"$ne": "archived"}}]}
+
+        Args:
+            embedding: The query embedding vector.
+            top_k: Maximum number of results to return.
+            where: Optional ChromaDB metadata filter dict.
+
+        Returns:
+            List of SearchResult objects ordered by similarity score (highest first).
+
+        Raises:
+            PermanentToolError: If the input is invalid.
+            TransientToolError: If the query fails due to a transient issue.
+        """
         if not embedding:
             raise PermanentToolError("embedding must be a non-empty list of floats")
 
@@ -147,11 +176,15 @@ class ChromaVectorSearchTool:
             raise PermanentToolError("top_k must be at least 1")
 
         try:
-            results = self._collection.query(
-                query_embeddings=[embedding],
-                n_results=top_k,
-                include=["metadatas", "distances"],
-            )
+            query_kwargs: dict = {
+                "query_embeddings": [embedding],
+                "n_results": top_k,
+                "include": ["metadatas", "distances"],
+            }
+            if where:
+                query_kwargs["where"] = where
+
+            results = self._collection.query(**query_kwargs)
         except Exception as e:
             if self._is_transient_error(e):
                 raise TransientToolError(
