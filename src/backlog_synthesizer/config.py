@@ -65,6 +65,10 @@ class PipelineConfig:
     chroma_collection: str = "backlog_items"
     chroma_persist_dir: str | None = None
 
+    # Gap detection thresholds
+    gap_detection_duplicate_threshold: float = 0.85
+    gap_detection_conflict_threshold: float = 0.50
+
     @classmethod
     def from_env(cls, config_path: str | Path | None = None) -> PipelineConfig:
         """Create a PipelineConfig from environment variables and optional config file.
@@ -133,6 +137,14 @@ class PipelineConfig:
         if chroma_persist_dir:
             env_values["chroma_persist_dir"] = chroma_persist_dir
 
+        gap_dup_threshold = os.environ.get("GAP_DETECTION_DUPLICATE_THRESHOLD")
+        if gap_dup_threshold:
+            env_values["gap_detection_duplicate_threshold"] = float(gap_dup_threshold)
+
+        gap_conflict_threshold = os.environ.get("GAP_DETECTION_CONFLICT_THRESHOLD")
+        if gap_conflict_threshold:
+            env_values["gap_detection_conflict_threshold"] = float(gap_conflict_threshold)
+
         # Load config file overrides
         resolved_path = config_path or os.environ.get("BACKLOG_SYNTHESIZER_CONFIG")
         if resolved_path:
@@ -184,6 +196,8 @@ class PipelineConfig:
             "embedding_model",
             "chroma_collection",
             "chroma_persist_dir",
+            "gap_detection_duplicate_threshold",
+            "gap_detection_conflict_threshold",
         }
 
         return {k: v for k, v in data.items() if k in valid_keys}

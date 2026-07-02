@@ -27,7 +27,10 @@ class GapReportEntry(BaseModel):
 
     item: ExtractedItem
     classification: str  # "new", "duplicate", "conflict", "unprocessed"
+    gap_type: str = "new"  # "DUPLICATE", "CONFLICT", "NEW", "UNPROCESSED"
     confidence: float = Field(ge=0.0, le=1.0)
+    similarity_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    similar_ticket_id: str | None = None
     duplicate_info: DuplicateFlag | None = None
     conflict_info: ConflictFlag | None = None
     error_reason: str | None = None  # for unprocessed items

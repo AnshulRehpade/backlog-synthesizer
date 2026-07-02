@@ -5,6 +5,7 @@ and classifies them as new, duplicate, or conflict based on thresholds.
 """
 
 import asyncio
+import os
 
 from backlog_synthesizer.models.extraction import ExtractedItem
 from backlog_synthesizer.models.gap_detection import (
@@ -21,9 +22,9 @@ from backlog_synthesizer.tools.interfaces import (
 )
 
 
-# Threshold constants
-DUPLICATE_THRESHOLD = 0.85
-CONFLICT_LOWER_THRESHOLD = 0.50
+# Threshold constants — configurable via environment variables
+DUPLICATE_THRESHOLD = float(os.environ.get("GAP_DETECTION_DUPLICATE_THRESHOLD", "0.85"))
+CONFLICT_LOWER_THRESHOLD = float(os.environ.get("GAP_DETECTION_CONFLICT_THRESHOLD", "0.50"))
 
 
 def classify_item(
@@ -63,7 +64,10 @@ def classify_item(
         return GapReportEntry(
             item=item,
             classification="duplicate",
+            gap_type="DUPLICATE",
             confidence=similarity_score,
+            similarity_score=similarity_score,
+            similar_ticket_id=matching_ticket_id,
             duplicate_info=duplicate_info,
         )
     elif (
@@ -81,7 +85,10 @@ def classify_item(
         return GapReportEntry(
             item=item,
             classification="conflict",
+            gap_type="CONFLICT",
             confidence=similarity_score,
+            similarity_score=similarity_score,
+            similar_ticket_id=matching_ticket_id,
             conflict_info=conflict_info,
         )
     else:
@@ -89,7 +96,10 @@ def classify_item(
         return GapReportEntry(
             item=item,
             classification="new",
+            gap_type="NEW",
             confidence=1.0 - similarity_score if matching_ticket_id is not None else 1.0,
+            similarity_score=similarity_score if matching_ticket_id is not None else 0.0,
+            similar_ticket_id=matching_ticket_id,
         )
 
 
@@ -109,7 +119,10 @@ def classify_items_empty_backlog(items: list[ExtractedItem]) -> GapReport:
         GapReportEntry(
             item=item,
             classification="new",
+            gap_type="NEW",
             confidence=1.0,
+            similarity_score=0.0,
+            similar_ticket_id=None,
         )
         for item in items
     ]
@@ -180,7 +193,9 @@ class GapDetectionAgent:
                     GapReportEntry(
                         item=item,
                         classification="unprocessed",
+                        gap_type="UNPROCESSED",
                         confidence=0.0,
+                        similarity_score=0.0,
                         error_reason="Processing timed out after {:.0f} seconds".format(timeout),
                     )
                 )
@@ -189,7 +204,9 @@ class GapDetectionAgent:
                     GapReportEntry(
                         item=item,
                         classification="unprocessed",
+                        gap_type="UNPROCESSED",
                         confidence=0.0,
+                        similarity_score=0.0,
                         error_reason=str(e),
                     )
                 )
@@ -231,7 +248,10 @@ class GapDetectionAgent:
             return GapReportEntry(
                 item=item,
                 classification="new",
+                gap_type="NEW",
                 confidence=1.0,
+                similarity_score=0.0,
+                similar_ticket_id=None,
             )
 
         # Use the highest similarity score from results
