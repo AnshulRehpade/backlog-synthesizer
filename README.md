@@ -1,5 +1,9 @@
 # Backlog Synthesizer
 
+[![Tests](https://github.com/AnshulRehpade/backlog-synthesizer/actions/workflows/test.yml/badge.svg)](https://github.com/AnshulRehpade/backlog-synthesizer/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/badge/coverage-%3E80%25-brightgreen)](https://github.com/AnshulRehpade/backlog-synthesizer/actions/workflows/test.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+
 A multi-agent system that transforms unstructured meeting transcripts and architecture documents into structured, deduplicated user stories ready for your product backlog. It solves the problem of information loss between meetings and ticketing systems — decisions get made, pain points get raised, and feature requests surface in conversations, but without disciplined manual note-taking, much of that signal never makes it into actionable backlog items.
 
 The system ingests documents in multiple formats (text transcripts, PDFs, HTML architecture docs, existing JSON backlog tickets), extracts decisions, pain points, and feature requests using LLM-powered analysis, detects duplicates and conflicts against your existing backlog via semantic similarity, and produces well-formed user stories grouped into epics. The output is a structured JSON document with stories in "As a [role], I want [goal], so that [benefit]" format, complete with acceptance criteria and feature tags.
