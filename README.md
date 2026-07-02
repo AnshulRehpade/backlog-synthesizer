@@ -371,3 +371,62 @@ Hypothesis is configured with `max_examples = 100` per property (set in `pyproje
 ## License
 
 MIT
+
+## Configuration Reference
+
+All configuration is loaded from environment variables (via `.env` file) with sensible defaults. Copy `.env.example` to `.env` to get started.
+
+### Required Variables
+
+| Variable | Description | Where to get it |
+|----------|-------------|-----------------|
+| `ANTHROPIC_API_KEY` | Anthropic API key (required when `LLM_PROVIDER=anthropic`) | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
+| `OPENAI_API_KEY` | OpenAI API key (required when `LLM_PROVIDER=openai`) | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+
+Only one API key is needed — whichever provider you select.
+
+### Optional Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_PROVIDER` | `anthropic` | Which LLM backend to use: `anthropic` or `openai` |
+| `ANTHROPIC_MODEL` | `claude-haiku-4-20250414` | Claude model identifier |
+| `ANTHROPIC_MAX_TOKENS` | `4096` | Maximum tokens in Claude responses |
+| `ANTHROPIC_TIMEOUT` | `60` | Request timeout (seconds) for Anthropic API |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model identifier |
+| `OPENAI_BASE_URL` | _(none)_ | Custom base URL for OpenAI-compatible APIs (Azure, local servers) |
+| `OPENAI_TIMEOUT` | `60` | Request timeout (seconds) for OpenAI API |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence-transformer model for local embeddings |
+| `CHROMA_COLLECTION` | `backlog_items` | ChromaDB collection name |
+| `CHROMA_PERSIST_DIR` | _(none/ephemeral)_ | Directory for persistent vector storage. Unset = in-memory only. |
+| `BACKLOG_SYNTHESIZER_CONFIG` | _(none)_ | Path to a JSON config file with additional overrides |
+
+### Pipeline Constants (not configurable via env)
+
+These are design-level parameters defined by the system requirements:
+
+| Constant | Value | Location | Purpose |
+|----------|-------|----------|---------|
+| Chunk size | 2000 tokens | `parser.py` | Maximum tokens per text chunk sent to LLM |
+| Chunk overlap | 200 tokens | `parser.py` | Overlap between consecutive chunks to preserve context |
+| Sub-agent timeout | 120 seconds | `orchestrator.py` | Maximum time per sub-agent invocation |
+| Gap detection timeout | 30 seconds | `gap_detection.py` | Timeout for similarity search per item |
+| Max retries | 3 | `orchestrator.py` | Retry count for transient failures |
+| Retry backoff | 1s, 2s, 4s | `orchestrator.py` | Exponential backoff between retries |
+| Duplicate threshold | ≥ 0.85 | `gap_detection.py` | Cosine similarity above which items are duplicates |
+| Conflict threshold | 0.50–0.85 | `gap_detection.py` | Range where LLM checks for contradictions |
+
+### JSON Config File
+
+For advanced deployments, you can provide a JSON file (via `BACKLOG_SYNTHESIZER_CONFIG` env var) with any of the above optional variables in snake_case:
+
+```json
+{
+  "llm_provider": "openai",
+  "openai_model": "gpt-4o",
+  "chroma_persist_dir": "/var/data/backlog-vectors"
+}
+```
+
+Config file values override environment variables, which override defaults.
+
