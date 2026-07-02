@@ -1,0 +1,23 @@
+[
+  {
+    "id": "ONBOARD-101",
+    "title": "Add progress indicator to onboarding wizard",
+    "description": "Users need to see how many steps remain in the onboarding flow. Currently there is no visual indicator of progress.",
+    "status": "backlog",
+    "tags": ["onboarding", "ux"]
+  },
+  {
+    "id": "ONBOARD-088",
+    "title": "Reduce onboarding template page load time",
+    "description": "The template selection page takes over 3 seconds to load because all template metadata is fetched upfront. Investigate lazy loading.",
+    "status": "in_progress",
+    "tags": ["performance", "onboarding"]
+  },
+  {
+    "id": "ENGAGE-042",
+    "title": "Implement automated re-engagement emails",
+    "description": "Send follow-up emails to users who started signup but did not complete onboarding within 48 hours.",
+    "status": "backlog",
+    "tags": ["email", "engagement", "onboarding"]
+  }
+]

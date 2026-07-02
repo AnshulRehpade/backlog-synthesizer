@@ -1,0 +1,33 @@
+Product Sync Meeting - Customer Onboarding Improvements
+Date: 2024-03-12
+Participants: Jordan (Product Manager), Alex (UX Lead), Sam (Backend Engineer), Riley (Customer Success)
+
+Riley: Hey everyone. I wanted to bring up something that's been a recurring theme in our customer conversations. We're losing about 15% of new signups during the onboarding flow. They create an account but never complete their first project setup.
+
+Jordan: That's significant. Do we know where exactly they're dropping off?
+
+Riley: Based on the analytics, the biggest drop happens at the "invite team members" step. People don't have their colleagues' emails handy and there's no way to skip it. They close the browser and never come back.
+
+Alex: That's a design problem we can solve. We should make the team invitation step skippable with a clear "I'll do this later" option. We could also add a bulk invite via CSV upload for enterprise customers who have their team lists ready.
+
+Sam: From a technical perspective, I'd also suggest we add a progress indicator to the onboarding wizard. Right now users have no idea whether they're on step 2 of 3 or step 2 of 10. That uncertainty causes abandonment.
+
+Jordan: Good point. Decision: we'll add a progress bar showing the total number of steps and current position. Let's keep it to 5 steps maximum for the initial onboarding.
+
+Riley: Another pain point from customers — the initial project template selection is overwhelming. We show 47 templates on one page with no filtering or categorization. New users don't know which one to pick and feel paralyzed.
+
+Alex: We should categorize templates by industry and use case. Also add a "recommended for you" section based on what they selected during signup (their role, company size, industry). Decision: we'll reduce the visible templates to the top 6 recommendations plus a "browse all" option.
+
+Sam: I want to flag a technical constraint — our current template system loads all template metadata upfront, which adds 3 seconds to the page load time. If we're going to show personalized recommendations, we need to lazy-load the template data and cache the recommendations API response.
+
+Jordan: Noted. Let's make sure that's captured as a prerequisite for the template work.
+
+Riley: One more feature request from our enterprise tier customers — they want the ability to set a custom onboarding flow per organization. Different teams within the same company need different default settings and template selections.
+
+Jordan: That's a bigger lift. Decision: we'll design the onboarding system with a configuration layer that allows per-organization customization, but we'll ship the default improved flow first and add customization in phase 2.
+
+Alex: For the immediate fix, I also want to request a "welcome back" re-engagement email that triggers 24 hours after someone abandons onboarding. It should deep-link them back to exactly where they left off.
+
+Sam: We'll need to persist the onboarding state server-side for that to work. Right now it's all in localStorage which means if they switch devices, they start over. Decision: migrate onboarding state to the backend with a resumable session endpoint.
+
+Jordan: Perfect. To summarize — our decisions are: skippable team invite step, progress bar with max 5 steps, categorized templates with top-6 recommendations, lazy-load template data, per-org configuration designed but shipped later, and backend-persisted onboarding state. Feature requests include CSV bulk invite, re-engagement email, and custom onboarding flows. Pain points are the 15% drop-off, template overwhelm, and 3-second load time.
