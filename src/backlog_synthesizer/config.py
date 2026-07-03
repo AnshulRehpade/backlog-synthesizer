@@ -66,7 +66,7 @@ class PipelineConfig:
     chroma_persist_dir: str | None = None
 
     # Gap detection thresholds
-    gap_detection_duplicate_threshold: float = 0.85
+    gap_detection_duplicate_threshold: float = 0.80
     gap_detection_conflict_threshold: float = 0.50
 
     # ReAct reasoning

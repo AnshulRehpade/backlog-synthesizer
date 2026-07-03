@@ -103,7 +103,7 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 
 ### Configurable thresholds via environment
 
-- `GAP_DETECTION_DUPLICATE_THRESHOLD` (default 0.85)
+- `GAP_DETECTION_DUPLICATE_THRESHOLD` (default 0.80, tuned via golden dataset — F1=0.83)
 - `GAP_DETECTION_CONFLICT_THRESHOLD` (default 0.50)
 - `LLM_PROVIDER` switches between anthropic/openai with zero code changes
 

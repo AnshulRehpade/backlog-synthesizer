@@ -267,8 +267,8 @@ class TestConfigurableThresholds:
     """Verify thresholds are read from environment and applied correctly."""
 
     def test_default_duplicate_threshold(self):
-        """Default duplicate threshold is 0.85."""
-        assert DUPLICATE_THRESHOLD == 0.85
+        """Default duplicate threshold is 0.80."""
+        assert DUPLICATE_THRESHOLD == 0.80
 
     def test_default_conflict_threshold(self):
         """Default conflict lower threshold is 0.50."""

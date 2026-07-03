@@ -23,7 +23,7 @@ from backlog_synthesizer.tools.interfaces import (
 
 
 # Threshold constants — configurable via environment variables
-DUPLICATE_THRESHOLD = float(os.environ.get("GAP_DETECTION_DUPLICATE_THRESHOLD", "0.85"))
+DUPLICATE_THRESHOLD = float(os.environ.get("GAP_DETECTION_DUPLICATE_THRESHOLD", "0.80"))
 CONFLICT_LOWER_THRESHOLD = float(os.environ.get("GAP_DETECTION_CONFLICT_THRESHOLD", "0.50"))
 
 
