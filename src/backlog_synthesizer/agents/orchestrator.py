@@ -31,6 +31,8 @@ from backlog_synthesizer.models.inputs import (
 )
 from backlog_synthesizer.models.memory import AuditEntry, SessionState
 from backlog_synthesizer.models.output import Epic, StoryOutput
+from backlog_synthesizer.observability.tracing import PipelineTracer
+from backlog_synthesizer.observability.metrics import PipelineMetrics
 from backlog_synthesizer.tools.errors import PermanentToolError, TransientToolError
 from backlog_synthesizer.tools.interfaces import LLMGenerationTool
 
@@ -122,6 +124,16 @@ class OrchestratorAgent:
         """
         session_id = inputs.session_id
         pipeline_start = time.time()
+
+        # Initialize observability
+        pipeline_tracer = PipelineTracer(
+            session_id=session_id,
+            attributes={
+                "document_count": len(inputs.documents),
+                "backlog_ticket_count": len(inputs.backlog_tickets),
+            },
+        )
+        pipeline_metrics = PipelineMetrics()
 
         # Create session state
         session_state = SessionState(
@@ -237,6 +249,14 @@ class OrchestratorAgent:
         # Store extraction results (Requirement 2.4)
         session_state.extraction_result = extraction_result
         self._memory.store_intermediate(session_id, "extraction_result", extraction_result.model_dump())
+
+        # Record parser observability
+        pipeline_tracer.record_agent_span("agent.parser", {
+            "documents_processed": len(non_backlog_docs),
+            "items_extracted": len(extraction_result.items),
+            "errors": len(extraction_result.errors),
+        }, duration_ms)
+        pipeline_metrics.record_latency("parser", duration_ms)
 
         # --- Decision Point 1: After Parser — empty or few items ---
         if self._reasoner is not None:
@@ -412,6 +432,19 @@ class OrchestratorAgent:
         # Store gap report (Requirement 2.4)
         session_state.gap_report = gap_report
         self._memory.store_intermediate(session_id, "gap_report", gap_report.model_dump())
+
+        # Record gap detection observability
+        pipeline_tracer.record_agent_span("agent.gap_detection", {
+            "items_processed": len(extraction_result.items),
+            "duplicate_count": gap_report.total_duplicates,
+            "conflict_count": gap_report.total_conflicts,
+            "new_count": gap_report.total_new,
+            "unprocessed_count": gap_report.total_unprocessed,
+        }, duration_ms)
+        pipeline_metrics.record_latency("gap_detection", duration_ms)
+        pipeline_metrics.record_items("duplicate", gap_report.total_duplicates)
+        pipeline_metrics.record_items("conflict", gap_report.total_conflicts)
+        pipeline_metrics.record_items("new", gap_report.total_new)
 
         # --- Decision Point 2: After Gap Detection — all or mostly duplicates ---
         if self._reasoner is not None:
@@ -619,6 +652,15 @@ class OrchestratorAgent:
         duration_ms = int((time.time() - start_time) * 1000)
 
         story_output = serialization_result.output
+
+        # Record story writer observability
+        pipeline_tracer.record_agent_span("agent.story_writer", {
+            "items_received": len(gap_report.entries),
+            "stories_generated": len(stories),
+            "epic_count": len(epics),
+        }, duration_ms)
+        pipeline_metrics.record_latency("story_writer", duration_ms)
+
         if serialization_result.errors:
             error_desc = f"{len(serialization_result.errors)} serialization errors"
             for ser_err in serialization_result.errors:
@@ -745,6 +787,9 @@ class OrchestratorAgent:
             len(epics),
             pipeline_total_ms,
         )
+
+        # Save session replay for observability
+        pipeline_tracer.save_session_replay(session_state.status, pipeline_metrics.to_dict())
 
         return SessionResult(
             session_id=session_id,

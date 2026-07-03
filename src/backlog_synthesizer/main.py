@@ -20,6 +20,10 @@ from dotenv import load_dotenv
 # Load .env file from project root (before any config reads)
 load_dotenv()
 
+from backlog_synthesizer.observability import init_telemetry
+
+init_telemetry()
+
 from backlog_synthesizer.agents.gap_detection import GapDetectionAgent
 from backlog_synthesizer.agents.orchestrator import OrchestratorAgent, SessionResult
 from backlog_synthesizer.agents.parser import ParserAgent

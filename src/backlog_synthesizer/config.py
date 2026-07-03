@@ -75,6 +75,10 @@ class PipelineConfig:
     # Tokenizer
     tokenizer_model: str = "cl100k_base"
 
+    # Observability
+    otel_enabled: bool = True
+    runs_dir: str = "runs"
+
     @classmethod
     def from_env(cls, config_path: str | Path | None = None) -> PipelineConfig:
         """Create a PipelineConfig from environment variables and optional config file.
@@ -159,6 +163,14 @@ class PipelineConfig:
         if tokenizer_model:
             env_values["tokenizer_model"] = tokenizer_model
 
+        otel_enabled = os.environ.get("OTEL_ENABLED")
+        if otel_enabled is not None:
+            env_values["otel_enabled"] = otel_enabled.lower() in ("true", "1", "yes")
+
+        runs_dir = os.environ.get("RUNS_DIR")
+        if runs_dir:
+            env_values["runs_dir"] = runs_dir
+
         # Load config file overrides
         resolved_path = config_path or os.environ.get("BACKLOG_SYNTHESIZER_CONFIG")
         if resolved_path:
@@ -214,6 +226,8 @@ class PipelineConfig:
             "gap_detection_conflict_threshold",
             "react_reasoning_enabled",
             "tokenizer_model",
+            "otel_enabled",
+            "runs_dir",
         }
 
         return {k: v for k, v in data.items() if k in valid_keys}

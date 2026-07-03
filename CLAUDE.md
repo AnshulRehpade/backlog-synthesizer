@@ -124,7 +124,8 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 - Concurrent execution within agents
 - Timing instrumentation in orchestrator
 - **tiktoken-based tokenizer** for accurate token counting in chunking (configurable via TOKENIZER_MODEL)
-- 393 tests passing (property-based + unit + integration)
+- **OpenTelemetry observability** — tracing (per-agent spans), metrics (token usage, latency, cost estimation), session replay (JSON in runs/)
+- 412 tests passing (property-based + unit + integration)
 - CI pipeline (GitHub Actions with coverage enforcement)
 - CLI entry points (`demo.py` and `python -m backlog_synthesizer.main`)
 

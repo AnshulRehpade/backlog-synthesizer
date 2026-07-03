@@ -23,3 +23,6 @@ build/
 
 # ChromaDB local storage
 data/chroma/
+
+# Observability session replays
+runs/
