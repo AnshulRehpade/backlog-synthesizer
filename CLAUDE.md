@@ -198,7 +198,8 @@ The Orchestrator uses LLM-driven reasoning at 5 decision points within the seque
 
 - `ReActReasoner` class in `agents/react_reasoning.py` — stateless, takes LLMGenerationTool
 - `reasoning_llm` parameter on OrchestratorAgent is **optional** — None means pure sequential pipeline (backward compatible)
+- **`REACT_REASONING_ENABLED` env var** (default: `true`) — set to `false` to disable reasoning and save LLM calls. When false, `reasoning_llm=None` is passed regardless of available LLM tool.
 - Every decision logged to AuditLog as "ReActReasoner" agent
 - Every LLM call wrapped in try/except — failures never break the pipeline
 - `SessionResult` has a `metadata` dict for ReAct notes (e.g., halt reasons)
-- `main.py` passes the same LLM tool used by agents as the reasoning LLM
+- `main.py` passes the same LLM tool used by agents as the reasoning LLM (when enabled)

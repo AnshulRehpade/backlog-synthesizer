@@ -118,7 +118,7 @@ def create_pipeline(config: PipelineConfig | None = None) -> OrchestratorAgent:
         gap_detector=gap_detector,
         story_writer=story_writer,
         memory=memory,
-        reasoning_llm=llm_tool,
+        reasoning_llm=llm_tool if config.react_reasoning_enabled else None,
     )
 
     return orchestrator

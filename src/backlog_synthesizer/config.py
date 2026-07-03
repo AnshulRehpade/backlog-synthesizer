@@ -69,6 +69,9 @@ class PipelineConfig:
     gap_detection_duplicate_threshold: float = 0.85
     gap_detection_conflict_threshold: float = 0.50
 
+    # ReAct reasoning
+    react_reasoning_enabled: bool = True
+
     @classmethod
     def from_env(cls, config_path: str | Path | None = None) -> PipelineConfig:
         """Create a PipelineConfig from environment variables and optional config file.
@@ -145,6 +148,10 @@ class PipelineConfig:
         if gap_conflict_threshold:
             env_values["gap_detection_conflict_threshold"] = float(gap_conflict_threshold)
 
+        react_enabled = os.environ.get("REACT_REASONING_ENABLED")
+        if react_enabled is not None:
+            env_values["react_reasoning_enabled"] = react_enabled.lower() in ("true", "1", "yes")
+
         # Load config file overrides
         resolved_path = config_path or os.environ.get("BACKLOG_SYNTHESIZER_CONFIG")
         if resolved_path:
@@ -198,6 +205,7 @@ class PipelineConfig:
             "chroma_persist_dir",
             "gap_detection_duplicate_threshold",
             "gap_detection_conflict_threshold",
+            "react_reasoning_enabled",
         }
 
         return {k: v for k, v in data.items() if k in valid_keys}
