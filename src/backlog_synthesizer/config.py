@@ -72,6 +72,9 @@ class PipelineConfig:
     # ReAct reasoning
     react_reasoning_enabled: bool = True
 
+    # Tokenizer
+    tokenizer_model: str = "cl100k_base"
+
     @classmethod
     def from_env(cls, config_path: str | Path | None = None) -> PipelineConfig:
         """Create a PipelineConfig from environment variables and optional config file.
@@ -152,6 +155,10 @@ class PipelineConfig:
         if react_enabled is not None:
             env_values["react_reasoning_enabled"] = react_enabled.lower() in ("true", "1", "yes")
 
+        tokenizer_model = os.environ.get("TOKENIZER_MODEL")
+        if tokenizer_model:
+            env_values["tokenizer_model"] = tokenizer_model
+
         # Load config file overrides
         resolved_path = config_path or os.environ.get("BACKLOG_SYNTHESIZER_CONFIG")
         if resolved_path:
@@ -206,6 +213,7 @@ class PipelineConfig:
             "gap_detection_duplicate_threshold",
             "gap_detection_conflict_threshold",
             "react_reasoning_enabled",
+            "tokenizer_model",
         }
 
         return {k: v for k, v in data.items() if k in valid_keys}

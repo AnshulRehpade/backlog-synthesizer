@@ -123,7 +123,8 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 - Tag extraction in parser, tag inheritance in story writer
 - Concurrent execution within agents
 - Timing instrumentation in orchestrator
-- 387 tests passing (property-based + unit + integration)
+- **tiktoken-based tokenizer** for accurate token counting in chunking (configurable via TOKENIZER_MODEL)
+- 393 tests passing (property-based + unit + integration)
 - CI pipeline (GitHub Actions with coverage enforcement)
 - CLI entry points (`demo.py` and `python -m backlog_synthesizer.main`)
 
@@ -131,7 +132,6 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 
 - Evaluation framework: `run_evaluation()` works but no CLI command to invoke it
 - Persistent ChromaDB: supported via config but no cross-session deduplication workflow
-- Token-based chunking: currently uses whitespace-based word approximation, not a proper tokenizer
 
 ### Not yet implemented
 

@@ -5,6 +5,8 @@ import json
 import logging
 from html.parser import HTMLParser
 
+import tiktoken
+
 from backlog_synthesizer.models.extraction import (
     DocumentError,
     ExtractedItem,
@@ -78,9 +80,15 @@ class ParserAgent:
     decisions, pain points, and feature requests using an LLM.
     """
 
-    def __init__(self, parsing_tool: DocumentParsingTool, llm_tool: LLMGenerationTool):
+    def __init__(
+        self,
+        parsing_tool: DocumentParsingTool,
+        llm_tool: LLMGenerationTool,
+        tokenizer_model: str = "cl100k_base",
+    ):
         self._parsing_tool = parsing_tool
         self._llm_tool = llm_tool
+        self._tokenizer = tiktoken.get_encoding(tokenizer_model)
 
     async def parse_documents(self, documents: list[InputDocument]) -> ExtractionResult:
         """Parse all input documents and extract structured items.
@@ -454,26 +462,25 @@ class ParserAgent:
     def _chunk_text(
         self, text: str, max_tokens: int = 2000, overlap: int = 200
     ) -> list[TextChunk]:
-        """Split text into overlapping chunks using whitespace-based tokenization.
+        """Split text into overlapping chunks using tiktoken tokenization.
 
-        Each chunk contains at most `max_tokens` tokens. Consecutive chunks share
-        exactly `overlap` tokens so that no information is lost at boundaries.
-        Reconstructing the original text by removing overlapping regions from
-        consecutive chunks reproduces the input exactly.
+        Each chunk contains at most `max_tokens` real tokens (as counted by the
+        tiktoken tokenizer). Consecutive chunks share exactly `overlap` tokens so
+        that no information is lost at boundaries.
 
         Args:
             text: The input text to chunk.
-            max_tokens: Maximum number of tokens (whitespace-delimited words) per chunk.
+            max_tokens: Maximum number of tokens per chunk (default 2000 real tokens).
             overlap: Number of tokens shared between consecutive chunks.
 
         Returns:
             A list of TextChunk objects. Returns an empty list for empty input.
             Returns a single chunk if the text has fewer than max_tokens tokens.
         """
-        if not text:
+        if not text or not text.strip():
             return []
 
-        tokens = text.split()
+        tokens = self._tokenizer.encode(text)
         total_tokens = len(tokens)
 
         if total_tokens == 0:
@@ -490,7 +497,6 @@ class ParserAgent:
             ]
 
         chunks: list[TextChunk] = []
-        # Step size is how far we advance the start position each iteration
         step = max_tokens - overlap
         index = 0
         start = 0
@@ -498,7 +504,7 @@ class ParserAgent:
         while start < total_tokens:
             end = min(start + max_tokens, total_tokens)
             chunk_tokens = tokens[start:end]
-            chunk_text = " ".join(chunk_tokens)
+            chunk_text = self._tokenizer.decode(chunk_tokens)
 
             chunks.append(
                 TextChunk(

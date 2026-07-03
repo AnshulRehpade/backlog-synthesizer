@@ -236,6 +236,8 @@ class TestCreatePipeline:
         mock_config.create_embedding_tool.return_value = MagicMock()
         mock_config.create_vector_search_tool.return_value = MagicMock()
         mock_config.create_llm_tool.return_value = MagicMock()
+        mock_config.tokenizer_model = "cl100k_base"
+        mock_config.react_reasoning_enabled = True
         mock_from_env.return_value = mock_config
 
         orchestrator = create_pipeline()
@@ -250,6 +252,8 @@ class TestCreatePipeline:
         mock_config.create_embedding_tool.return_value = MagicMock()
         mock_config.create_vector_search_tool.return_value = MagicMock()
         mock_config.create_llm_tool.return_value = MagicMock()
+        mock_config.tokenizer_model = "cl100k_base"
+        mock_config.react_reasoning_enabled = True
 
         orchestrator = create_pipeline(config=mock_config)
 

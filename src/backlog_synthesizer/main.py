@@ -104,7 +104,7 @@ def create_pipeline(config: PipelineConfig | None = None) -> OrchestratorAgent:
     )
 
     # Create agents
-    parser = ParserAgent(parsing_tool=parsing_tool, llm_tool=llm_tool)
+    parser = ParserAgent(parsing_tool=parsing_tool, llm_tool=llm_tool, tokenizer_model=config.tokenizer_model)
     gap_detector = GapDetectionAgent(
         embedding_tool=embedding_tool,
         vector_search_tool=vector_search_tool,
