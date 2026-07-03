@@ -12,6 +12,43 @@ class GoldenEntry(BaseModel):
     expected_stories: list[UserStory]
 
 
+class GoldenDatasetEntry(BaseModel):
+    """A single entry in the expanded golden dataset for CLI-based evaluation."""
+
+    id: str
+    description: str
+    transcript: str
+    existing_backlog: list[dict] = Field(default_factory=list)
+    expected_stories_count: int = 0
+    expected_duplicates: int = 0
+    expected_conflicts: int = 0
+    tags: list[str] = Field(default_factory=list)
+
+
+class EvalRunResult(BaseModel):
+    """Result of evaluating a single golden entry."""
+
+    golden_id: str
+    keyword_overlap: float = 0.0
+    stories_generated: int = 0
+    passed: bool = True
+    failure_reason: str | None = None
+
+
+class EvalSummary(BaseModel):
+    """Aggregate evaluation results."""
+
+    total_entries: int
+    passed: int
+    failed: int
+    keyword_overlap_mean: float = 0.0
+    keyword_overlap_std: float = 0.0
+    keyword_overlap_min: float = 0.0
+    keyword_overlap_max: float = 0.0
+    success_rate: float = 0.0
+    results: list[EvalRunResult] = Field(default_factory=list)
+
+
 class JudgeScores(BaseModel):
     """LLM-as-judge scores for a generated user story."""
 

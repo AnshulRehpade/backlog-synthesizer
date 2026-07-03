@@ -1,0 +1,216 @@
+[
+  {
+    "id": "golden_001",
+    "description": "Normal transcript with clear decisions and feature requests",
+    "transcript": "Sprint planning meeting. We decided to add OAuth2 login, implement rate limiting on the API, build a dashboard for metrics, create a webhook notification system, and add CSV export for reports.",
+    "existing_backlog": [],
+    "expected_stories_count": 5,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["normal", "clear_items"]
+  },
+  {
+    "id": "golden_002",
+    "description": "Normal transcript with multiple action items and assignments",
+    "transcript": "Standup meeting. Tasks agreed: migrate database to PostgreSQL, add input validation on signup form, implement email verification flow, create admin role permissions, set up CI/CD pipeline, refactor the payment module, add dark mode toggle, and fix the broken search index.",
+    "existing_backlog": [],
+    "expected_stories_count": 8,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["normal", "clear_items"]
+  },
+  {
+    "id": "golden_003",
+    "description": "Vague items requiring refinement - unclear requirements",
+    "transcript": "Team sync. We need to fix stuff in the backend. Also improve things on the frontend. Make the app better overall. Someone should look into the performance.",
+    "existing_backlog": [],
+    "expected_stories_count": 4,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["vague", "needs_refinement"]
+  },
+  {
+    "id": "golden_004",
+    "description": "Vague items with ambiguous scope and no clear acceptance criteria",
+    "transcript": "Product review. The users are unhappy. We should do something about onboarding. The competitor has better UX. Let's make our thing more modern.",
+    "existing_backlog": [],
+    "expected_stories_count": 3,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["vague", "needs_refinement"]
+  },
+  {
+    "id": "golden_005",
+    "description": "Duplicate items - items already exist in backlog",
+    "transcript": "Planning session. We need to add OAuth2 login support. Also we should implement rate limiting for the public API. And let's build a user dashboard.",
+    "existing_backlog": [
+      {"id": "TICK-101", "title": "Implement OAuth2 Authentication", "description": "Add OAuth2 login flow with Google and GitHub providers", "status": "in_progress", "tags": ["auth", "oauth"]},
+      {"id": "TICK-102", "title": "API Rate Limiting", "description": "Implement rate limiting on all public API endpoints", "status": "todo", "tags": ["api", "security"]},
+      {"id": "TICK-103", "title": "User Analytics Dashboard", "description": "Build a dashboard showing user activity metrics", "status": "todo", "tags": ["dashboard", "analytics"]}
+    ],
+    "expected_stories_count": 0,
+    "expected_duplicates": 3,
+    "expected_conflicts": 0,
+    "tags": ["duplicates", "existing_backlog"]
+  },
+  {
+    "id": "golden_006",
+    "description": "Partial duplicates - some items exist, some are new",
+    "transcript": "Sprint review. Action items: add password reset via email, implement two-factor auth, create API documentation page, add webhook retry logic.",
+    "existing_backlog": [
+      {"id": "TICK-201", "title": "Password Reset Flow", "description": "Allow users to reset password via email link", "status": "done", "tags": ["auth"]},
+      {"id": "TICK-202", "title": "Two-Factor Authentication", "description": "Implement TOTP-based 2FA for user accounts", "status": "in_progress", "tags": ["auth", "security"]}
+    ],
+    "expected_stories_count": 2,
+    "expected_duplicates": 2,
+    "expected_conflicts": 0,
+    "tags": ["duplicates", "partial"]
+  },
+  {
+    "id": "golden_007",
+    "description": "Conflicting items - contradicts existing tickets",
+    "transcript": "Architecture review. Decision: we will remove rate limiting from the API to improve developer experience. Also, we are switching from PostgreSQL to MongoDB for all data storage.",
+    "existing_backlog": [
+      {"id": "TICK-301", "title": "Enforce API Rate Limits", "description": "Add strict rate limiting of 100 req/min on all endpoints", "status": "in_progress", "tags": ["api", "security"]},
+      {"id": "TICK-302", "title": "PostgreSQL Migration", "description": "Migrate all data from SQLite to PostgreSQL for production scalability", "status": "in_progress", "tags": ["database", "infrastructure"]}
+    ],
+    "expected_stories_count": 2,
+    "expected_duplicates": 0,
+    "expected_conflicts": 2,
+    "tags": ["conflicts", "contradictions"]
+  },
+  {
+    "id": "golden_008",
+    "description": "Conflicting priorities - new decisions override existing work",
+    "transcript": "Leadership sync. We are deprecating the REST API in favor of GraphQL only. The mobile app will be discontinued and we focus on web only. All microservices will be consolidated into a monolith.",
+    "existing_backlog": [
+      {"id": "TICK-401", "title": "REST API v2 Endpoints", "description": "Build new REST API v2 with improved pagination", "status": "in_progress", "tags": ["api", "rest"]},
+      {"id": "TICK-402", "title": "Mobile App Push Notifications", "description": "Add push notification support to iOS and Android apps", "status": "todo", "tags": ["mobile", "notifications"]},
+      {"id": "TICK-403", "title": "Extract Payment Microservice", "description": "Split payment logic into dedicated microservice", "status": "in_progress", "tags": ["architecture", "microservices"]}
+    ],
+    "expected_stories_count": 3,
+    "expected_duplicates": 0,
+    "expected_conflicts": 3,
+    "tags": ["conflicts", "strategic_shift"]
+  },
+  {
+    "id": "golden_009",
+    "description": "Technical jargon - heavy use of acronyms and technical terms",
+    "transcript": "DevOps standup. We need to set up a K8s cluster with HPA, configure the CI/CD pipeline with ArgoCD for GitOps, implement mTLS between services via Istio service mesh, and add APM with OTel traces exported to Datadog.",
+    "existing_backlog": [],
+    "expected_stories_count": 4,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["technical", "jargon", "devops"]
+  },
+  {
+    "id": "golden_010",
+    "description": "Technical jargon - database and backend specific terminology",
+    "transcript": "Backend review. Tasks: implement CQRS with event sourcing on the order domain, add a Redis-based distributed lock for idempotency, set up CDC via Debezium to sync the read model, configure pgBouncer connection pooling, and add gRPC endpoints for inter-service RPC.",
+    "existing_backlog": [],
+    "expected_stories_count": 5,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["technical", "jargon", "backend"]
+  },
+  {
+    "id": "golden_011",
+    "description": "Long meeting with many items - exceeds typical count",
+    "transcript": "Quarterly planning. Items: redesign landing page, add A/B testing framework, implement feature flags, build admin audit log, add SSO via SAML, create onboarding wizard, improve search with Elasticsearch, add real-time notifications via WebSockets, build reporting module, implement data export to CSV and PDF, add multi-language support, and create API versioning strategy.",
+    "existing_backlog": [],
+    "expected_stories_count": 12,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["long_meeting", "many_items"]
+  },
+  {
+    "id": "golden_012",
+    "description": "Long meeting with mixed priorities and assignments",
+    "transcript": "Sprint planning extended. We agreed on: fix login timeout bug, add bulk user import, implement role-based access control, create automated backup system, add Stripe subscription management, build internal chat feature, implement file upload with S3, add email templating system, create customer feedback widget, and set up staging environment with Docker Compose.",
+    "existing_backlog": [],
+    "expected_stories_count": 10,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["long_meeting", "many_items"]
+  },
+  {
+    "id": "golden_013",
+    "description": "Minimal content - only one clear action item",
+    "transcript": "Quick sync. The only thing we need to do this sprint is fix the payment processing timeout that is causing failed transactions for 5% of users.",
+    "existing_backlog": [],
+    "expected_stories_count": 1,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["minimal", "single_item"]
+  },
+  {
+    "id": "golden_014",
+    "description": "Minimal content - two items with brief context",
+    "transcript": "Manager one-on-one turned into planning. Two things: add a loading spinner to the dashboard, and update the footer copyright year to 2024.",
+    "existing_backlog": [],
+    "expected_stories_count": 2,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["minimal", "few_items"]
+  },
+  {
+    "id": "golden_015",
+    "description": "Edge case - completely empty transcript",
+    "transcript": "",
+    "existing_backlog": [],
+    "expected_stories_count": 0,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["edge_case", "empty"]
+  },
+  {
+    "id": "golden_016",
+    "description": "Edge case - transcript with no actionable items",
+    "transcript": "Team social chat. How was everyone's weekend? Anyone watch the game last night? The weather has been great lately. See you all at lunch.",
+    "existing_backlog": [],
+    "expected_stories_count": 0,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["edge_case", "no_actions"]
+  },
+  {
+    "id": "golden_017",
+    "description": "Mixed decision types - decisions, pain points, and feature requests together",
+    "transcript": "Product retrospective. Decision: we will use TypeScript for all new frontend code. Pain point: the deploy process takes 45 minutes and blocks the team. Feature request from customer: add bulk CSV import for contacts. Another pain point: error messages are cryptic and unhelpful for users.",
+    "existing_backlog": [],
+    "expected_stories_count": 4,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["mixed_types", "decisions", "pain_points", "feature_requests"]
+  },
+  {
+    "id": "golden_018",
+    "description": "Mixed types with priority signals and stakeholder mentions",
+    "transcript": "Cross-team sync. VP of Engineering decided: all services must have health check endpoints by end of month. Customer success reported: users want a way to schedule reports. Bug from QA: the notification service drops messages under high load. Tech debt item: the legacy auth module has no tests and needs refactoring.",
+    "existing_backlog": [],
+    "expected_stories_count": 4,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["mixed_types", "priorities", "stakeholders"]
+  },
+  {
+    "id": "golden_019",
+    "description": "Architecture document style - constraints and design principles",
+    "transcript": "Architecture decision record. Constraints: all data must be encrypted at rest using AES-256, services must respond within 200ms at p99, the system must support 10000 concurrent users. Principles: prefer eventual consistency over strong consistency, use event-driven communication between bounded contexts.",
+    "existing_backlog": [],
+    "expected_stories_count": 5,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["architecture", "constraints", "principles"]
+  },
+  {
+    "id": "golden_020",
+    "description": "Architecture document style - technology choices and non-functional requirements",
+    "transcript": "Tech radar update. Decisions: adopt Rust for performance-critical services, use OpenTelemetry for all observability, migrate from Jenkins to GitHub Actions, enforce 80% code coverage minimum on all repositories. Non-functional: system must achieve 99.9% uptime SLA.",
+    "existing_backlog": [],
+    "expected_stories_count": 5,
+    "expected_duplicates": 0,
+    "expected_conflicts": 0,
+    "tags": ["architecture", "technology", "nfr"]
+  }
+]

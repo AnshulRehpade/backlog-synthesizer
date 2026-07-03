@@ -75,6 +75,11 @@ class PipelineConfig:
     # Tokenizer
     tokenizer_model: str = "cl100k_base"
 
+    # Evaluation thresholds
+    eval_keyword_threshold: float = 0.60
+    eval_f1_threshold: float = 0.60
+    eval_regression_threshold: float = 0.05
+
     # Observability
     otel_enabled: bool = True
     runs_dir: str = "runs"
@@ -171,6 +176,18 @@ class PipelineConfig:
         if runs_dir:
             env_values["runs_dir"] = runs_dir
 
+        eval_keyword_threshold = os.environ.get("EVAL_KEYWORD_THRESHOLD")
+        if eval_keyword_threshold:
+            env_values["eval_keyword_threshold"] = float(eval_keyword_threshold)
+
+        eval_f1_threshold = os.environ.get("EVAL_F1_THRESHOLD")
+        if eval_f1_threshold:
+            env_values["eval_f1_threshold"] = float(eval_f1_threshold)
+
+        eval_regression_threshold = os.environ.get("EVAL_REGRESSION_THRESHOLD")
+        if eval_regression_threshold:
+            env_values["eval_regression_threshold"] = float(eval_regression_threshold)
+
         # Load config file overrides
         resolved_path = config_path or os.environ.get("BACKLOG_SYNTHESIZER_CONFIG")
         if resolved_path:
@@ -228,6 +245,9 @@ class PipelineConfig:
             "tokenizer_model",
             "otel_enabled",
             "runs_dir",
+            "eval_keyword_threshold",
+            "eval_f1_threshold",
+            "eval_regression_threshold",
         }
 
         return {k: v for k, v in data.items() if k in valid_keys}

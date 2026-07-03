@@ -125,14 +125,15 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 - Timing instrumentation in orchestrator
 - **tiktoken-based tokenizer** for accurate token counting in chunking (configurable via TOKENIZER_MODEL)
 - **OpenTelemetry observability** — tracing (per-agent spans), metrics (token usage, latency, cost estimation), session replay (JSON in runs/)
-- 412 tests passing (property-based + unit + integration)
+- **Evaluation framework** — CLI with `run`/`compare` commands, 20 golden entries, regression detection, confidence intervals
+- 442 tests passing (property-based + unit + integration)
 - CI pipeline (GitHub Actions with coverage enforcement)
 - CLI entry points (`demo.py` and `python -m backlog_synthesizer.main`)
 
 ### Partially implemented
 
-- Evaluation framework: `run_evaluation()` works but no CLI command to invoke it
 - Persistent ChromaDB: supported via config but no cross-session deduplication workflow
+- Prompt versioning: prompts exist but no formal version tracking system
 
 ### Not yet implemented
 

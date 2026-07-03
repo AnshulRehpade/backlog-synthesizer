@@ -26,3 +26,6 @@ data/chroma/
 
 # Observability session replays
 runs/
+
+# Evaluation history
+evaluation/history/
