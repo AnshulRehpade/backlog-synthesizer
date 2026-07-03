@@ -114,6 +114,7 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 ### Fully built and working
 
 - All 4 agents (Parser, Gap Detection, Story Writer, Orchestrator)
+- **ReAct Orchestrator** — LLM-driven decision-making at 5 pipeline decision points
 - Memory Engine (all 3 tiers)
 - All tool implementations (Anthropic, OpenAI, embeddings, vector search, PDF parsing)
 - Configuration system (env vars + optional JSON config file)
@@ -122,7 +123,7 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 - Tag extraction in parser, tag inheritance in story writer
 - Concurrent execution within agents
 - Timing instrumentation in orchestrator
-- 360 tests passing (property-based + unit + integration)
+- 387 tests passing (property-based + unit + integration)
 - CI pipeline (GitHub Actions with coverage enforcement)
 - CLI entry points (`demo.py` and `python -m backlog_synthesizer.main`)
 
@@ -134,7 +135,6 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 
 ### Not yet implemented
 
-- ReAct-pattern Orchestrator (LLM-driven decision loop)
 - Streaming output (currently blocks until entire pipeline completes)
 - Web UI or API server
 - Authentication/authorization for multi-tenant use
@@ -165,28 +165,40 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 
 ---
 
-## 7. Pending Next Step: ReAct Orchestrator
+## 7. ReAct Orchestrator (Implemented)
 
-The current Orchestrator is a fixed sequential pipeline. The next evolution converts it to a ReAct (Reason + Act) loop where the Orchestrator uses the LLM to decide what to do next based on intermediate results.
+The Orchestrator uses LLM-driven reasoning at 5 decision points within the sequential pipeline. The ReAct layer is purely advisory — if the LLM fails, the pipeline falls back to default behavior.
 
-### Key decision points where LLM reasoning adds value:
+### Decision Points
 
-1. **Empty parser output** — LLM decides whether to retry with different prompts, ask for more input, or halt gracefully
-2. **All items classified as duplicates** — LLM decides whether to report "nothing new" or re-run with lower threshold
-3. **Low-quality stories** (many "needs-refinement") — LLM decides whether to request more context from user or proceed
-4. **Permanent tool error mid-pipeline** — LLM decides whether partial results are worth returning or if the whole session should fail
-5. **Conflicting items detected** — LLM could suggest resolution strategies before generating stories
+1. **After Parser — empty/few items** (`react_reasoning.py` + orchestrator)
+   - 0 items → LLM decides: halt or proceed_empty
+   - <3 items → LLM decides: proceed_with_warning or proceed_normal
+   - Default fallback: halt (empty) / proceed_with_warning (few)
 
-### Implementation approach:
+2. **After Gap Detection — all/mostly duplicates**
+   - 100% duplicates → LLM decides: halt_all_duplicates or proceed_anyway
+   - >80% duplicates → LLM decides: proceed_with_warning or proceed_normal
+   - Default fallback: halt_all_duplicates (all) / proceed_with_warning (mostly)
 
-- Orchestrator maintains a state machine: `{step, results_so_far, observations}`
-- At each step, LLM is given the current state and asked to choose an action (invoke_parser, invoke_gap_detection, invoke_story_writer, retry_with_modification, halt, request_input)
-- Tool calls remain the same — only the routing logic becomes LLM-driven
-- Fallback: if LLM reasoning fails, execute the default sequential pipeline
+3. **After Story Writer — quality issues**
+   - >50% need refinement → LLM decides: return_with_warning or return_normal
+   - 0 epics formed → LLM decides: return_ungrouped or return_single_epic
+   - Default fallback: return_with_warning / return_ungrouped
 
-### What stays the same:
+4. **On Permanent error**
+   - LLM decides: return_partial (keep what succeeded) or halt_completely
+   - Default fallback: return_partial if prior results exist
 
-- All agent implementations unchanged
-- All tool interfaces unchanged
-- Memory Engine unchanged
-- The sequential dependency (Parser before Gap Detection before Story Writer) is still enforced — ReAct just adds intelligence around edge cases and quality control
+5. **Conflicts detected**
+   - LLM decides: proceed_with_conflicts or add_conflict_summary
+   - Default fallback: proceed_with_conflicts
+
+### Key Implementation Details
+
+- `ReActReasoner` class in `agents/react_reasoning.py` — stateless, takes LLMGenerationTool
+- `reasoning_llm` parameter on OrchestratorAgent is **optional** — None means pure sequential pipeline (backward compatible)
+- Every decision logged to AuditLog as "ReActReasoner" agent
+- Every LLM call wrapped in try/except — failures never break the pipeline
+- `SessionResult` has a `metadata` dict for ReAct notes (e.g., halt reasons)
+- `main.py` passes the same LLM tool used by agents as the reasoning LLM

@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from backlog_synthesizer.agents.errors import PipelineHaltError, RetryExhaustedError
 from backlog_synthesizer.agents.gap_detection import GapDetectionAgent
 from backlog_synthesizer.agents.parser import ParserAgent
+from backlog_synthesizer.agents.react_reasoning import ReActReasoner
 from backlog_synthesizer.agents.story_writer import StoryWriterAgent
 from backlog_synthesizer.memory.engine import MemoryEngine
 from backlog_synthesizer.models.extraction import ExtractionResult
@@ -29,8 +30,9 @@ from backlog_synthesizer.models.inputs import (
     SessionInputs,
 )
 from backlog_synthesizer.models.memory import AuditEntry, SessionState
-from backlog_synthesizer.models.output import StoryOutput
+from backlog_synthesizer.models.output import Epic, StoryOutput
 from backlog_synthesizer.tools.errors import PermanentToolError, TransientToolError
+from backlog_synthesizer.tools.interfaces import LLMGenerationTool
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,7 @@ class SessionResult:
         output: The final StoryOutput if story generation succeeded, else None.
         session_state: The full session state with intermediate results.
         errors: List of error dicts describing any failures.
+        metadata: Additional metadata from ReAct decisions or other sources.
     """
 
     def __init__(
@@ -55,12 +58,14 @@ class SessionResult:
         output: StoryOutput | None = None,
         session_state: SessionState | None = None,
         errors: list[dict] | None = None,
+        metadata: dict | None = None,
     ) -> None:
         self.session_id = session_id
         self.status = status
         self.output = output
         self.session_state = session_state
         self.errors = errors or []
+        self.metadata = metadata or {}
 
 
 class OrchestratorAgent:
@@ -79,6 +84,7 @@ class OrchestratorAgent:
         gap_detector: GapDetectionAgent,
         story_writer: StoryWriterAgent,
         memory: MemoryEngine,
+        reasoning_llm: LLMGenerationTool | None = None,
     ) -> None:
         """Initialize OrchestratorAgent with sub-agents and memory engine.
 
@@ -87,11 +93,14 @@ class OrchestratorAgent:
             gap_detector: The Gap Detection Agent for duplicate/conflict analysis.
             story_writer: The Story Writer Agent for user story generation.
             memory: The Memory Engine for session state and persistence.
+            reasoning_llm: Optional LLM tool for ReAct reasoning at decision points.
+                          When None, the orchestrator runs as a pure sequential pipeline.
         """
         self._parser = parser
         self._gap_detector = gap_detector
         self._story_writer = story_writer
         self._memory = memory
+        self._reasoner = ReActReasoner(reasoning_llm) if reasoning_llm else None
 
     async def run_session(self, inputs: SessionInputs) -> SessionResult:
         """Execute the full pipeline for a set of inputs.
@@ -229,6 +238,56 @@ class OrchestratorAgent:
         session_state.extraction_result = extraction_result
         self._memory.store_intermediate(session_id, "extraction_result", extraction_result.model_dump())
 
+        # --- Decision Point 1: After Parser — empty or few items ---
+        if self._reasoner is not None:
+            try:
+                if len(extraction_result.items) == 0:
+                    decision = await self._reasoner.decide(
+                        decision_point="after_parser_empty",
+                        observation=f"Parser extracted 0 items from {len(non_backlog_docs)} documents",
+                        available_actions=[
+                            {"action": "halt", "description": "Stop pipeline — no actionable items found"},
+                            {"action": "proceed_empty", "description": "Continue with empty result — gap detection will classify as all-new"},
+                        ],
+                    )
+                    self._log_agent_action(
+                        session_id, "ReActReasoner",
+                        f"Decision point: after_parser_empty | Observation: Parser extracted 0 items from {len(non_backlog_docs)} documents",
+                        f"Action: {decision['action']} | Reason: {decision['reason']}",
+                        0,
+                    )
+                    if decision["action"] == "halt":
+                        session_state.status = "completed"
+                        session_state.errors = errors
+                        self._memory.store_intermediate(session_id, "session_state", session_state.model_dump())
+                        return SessionResult(
+                            session_id=session_id,
+                            status="completed",
+                            output=None,
+                            session_state=session_state,
+                            errors=errors,
+                            metadata={"react_note": "Halted: no actionable items found after parsing"},
+                        )
+                elif len(extraction_result.items) < 3:
+                    decision = await self._reasoner.decide(
+                        decision_point="after_parser_few_items",
+                        observation=f"Parser extracted only {len(extraction_result.items)} items (low count)",
+                        available_actions=[
+                            {"action": "proceed_with_warning", "description": "Continue but add low-confidence warning to output"},
+                            {"action": "proceed_normal", "description": "Continue normally"},
+                        ],
+                    )
+                    self._log_agent_action(
+                        session_id, "ReActReasoner",
+                        f"Decision point: after_parser_few_items | Observation: Parser extracted only {len(extraction_result.items)} items (low count)",
+                        f"Action: {decision['action']} | Reason: {decision['reason']}",
+                        0,
+                    )
+                    if decision["action"] == "proceed_with_warning":
+                        errors.append({"step": "react_warning", "message": "Low item count — results may be incomplete"})
+            except Exception as e:
+                logger.warning("ReAct decision point 1 failed: %s. Continuing normally.", e)
+
         # NOTE: Extracted items are stored in Long-Term Memory AFTER gap detection
         # to avoid self-matching during duplicate analysis.
 
@@ -248,6 +307,37 @@ class OrchestratorAgent:
                 duration_ms,
             )
             errors.append({"step": "gap_detection", "error": str(e.original_error)})
+
+            # --- Decision Point 4: On permanent error ---
+            if self._reasoner is not None:
+                try:
+                    decision = await self._reasoner.decide(
+                        decision_point="permanent_error",
+                        observation=f"Permanent error in gap_detection: {str(e.original_error)[:200]}",
+                        available_actions=[
+                            {"action": "return_partial", "description": "Return whatever was completed before the error"},
+                            {"action": "halt_completely", "description": "Fail the entire session"},
+                        ],
+                    )
+                    self._log_agent_action(
+                        session_id, "ReActReasoner",
+                        f"Decision point: permanent_error | Observation: Permanent error in gap_detection: {str(e.original_error)[:100]}",
+                        f"Action: {decision['action']} | Reason: {decision['reason']}",
+                        0,
+                    )
+                    if decision["action"] == "return_partial" and extraction_result is not None:
+                        session_state.status = "partial_failure"
+                        session_state.errors = errors
+                        self._memory.store_intermediate(session_id, "session_state", session_state.model_dump())
+                        return SessionResult(
+                            session_id=session_id,
+                            status="partial_failure",
+                            session_state=session_state,
+                            errors=errors,
+                        )
+                except Exception as react_err:
+                    logger.warning("ReAct decision point 4 failed: %s. Halting completely.", react_err)
+
             session_state.status = "permanent_failure"
             session_state.errors = errors
             self._memory.store_intermediate(session_id, "session_state", session_state.model_dump())
@@ -313,6 +403,80 @@ class OrchestratorAgent:
         session_state.gap_report = gap_report
         self._memory.store_intermediate(session_id, "gap_report", gap_report.model_dump())
 
+        # --- Decision Point 2: After Gap Detection — all or mostly duplicates ---
+        if self._reasoner is not None:
+            try:
+                if gap_report.total_duplicates == len(gap_report.entries) and len(gap_report.entries) > 0:
+                    decision = await self._reasoner.decide(
+                        decision_point="after_gap_all_duplicates",
+                        observation=f"All {len(gap_report.entries)} items are duplicates of existing backlog tickets",
+                        available_actions=[
+                            {"action": "halt_all_duplicates", "description": "Stop — all items already in backlog"},
+                            {"action": "proceed_anyway", "description": "Continue to generate stories even for duplicates"},
+                        ],
+                    )
+                    self._log_agent_action(
+                        session_id, "ReActReasoner",
+                        f"Decision point: after_gap_all_duplicates | Observation: All {len(gap_report.entries)} items are duplicates",
+                        f"Action: {decision['action']} | Reason: {decision['reason']}",
+                        0,
+                    )
+                    if decision["action"] == "halt_all_duplicates":
+                        session_state.status = "completed"
+                        session_state.errors = errors
+                        self._memory.store_intermediate(session_id, "session_state", session_state.model_dump())
+                        return SessionResult(
+                            session_id=session_id,
+                            status="completed",
+                            output=None,
+                            session_state=session_state,
+                            errors=errors,
+                            metadata={"react_note": "Halted: all items are duplicates of existing backlog"},
+                        )
+                elif len(gap_report.entries) > 0 and gap_report.total_duplicates / max(len(gap_report.entries), 1) > 0.8:
+                    dup_pct = int(gap_report.total_duplicates / len(gap_report.entries) * 100)
+                    decision = await self._reasoner.decide(
+                        decision_point="after_gap_mostly_duplicates",
+                        observation=f"{dup_pct}% of items are duplicates",
+                        available_actions=[
+                            {"action": "proceed_with_warning", "description": "Continue but add high-duplicate warning to output"},
+                            {"action": "proceed_normal", "description": "Continue normally"},
+                        ],
+                    )
+                    self._log_agent_action(
+                        session_id, "ReActReasoner",
+                        f"Decision point: after_gap_mostly_duplicates | Observation: {dup_pct}% of items are duplicates",
+                        f"Action: {decision['action']} | Reason: {decision['reason']}",
+                        0,
+                    )
+                    if decision["action"] == "proceed_with_warning":
+                        errors.append({"step": "react_warning", "message": f"High duplicate rate ({dup_pct}%) — most items already in backlog"})
+            except Exception as e:
+                logger.warning("ReAct decision point 2 failed: %s. Continuing normally.", e)
+
+        # --- Decision Point 5: Conflicts detected ---
+        conflict_summary_requested = False
+        if self._reasoner is not None and gap_report.total_conflicts > 0:
+            try:
+                decision = await self._reasoner.decide(
+                    decision_point="conflicts_detected",
+                    observation=f"{gap_report.total_conflicts} conflicts detected between new items and existing backlog",
+                    available_actions=[
+                        {"action": "proceed_with_conflicts", "description": "Pass conflicts to Story Writer normally"},
+                        {"action": "add_conflict_summary", "description": "Generate stories and add a conflict summary to metadata"},
+                    ],
+                )
+                self._log_agent_action(
+                    session_id, "ReActReasoner",
+                    f"Decision point: conflicts_detected | Observation: {gap_report.total_conflicts} conflicts detected",
+                    f"Action: {decision['action']} | Reason: {decision['reason']}",
+                    0,
+                )
+                if decision["action"] == "add_conflict_summary":
+                    conflict_summary_requested = True
+            except Exception as e:
+                logger.warning("ReAct decision point 5 failed: %s. Continuing normally.", e)
+
         # Now store extracted items in Long-Term Memory for future sessions
         if extraction_result.items:
             search_items = [
@@ -344,6 +508,37 @@ class OrchestratorAgent:
                 duration_ms,
             )
             errors.append({"step": "story_writer", "error": str(e.original_error)})
+
+            # --- Decision Point 4: On permanent error ---
+            if self._reasoner is not None:
+                try:
+                    decision = await self._reasoner.decide(
+                        decision_point="permanent_error",
+                        observation=f"Permanent error in story_writer: {str(e.original_error)[:200]}",
+                        available_actions=[
+                            {"action": "return_partial", "description": "Return whatever was completed before the error"},
+                            {"action": "halt_completely", "description": "Fail the entire session"},
+                        ],
+                    )
+                    self._log_agent_action(
+                        session_id, "ReActReasoner",
+                        f"Decision point: permanent_error | Observation: Permanent error in story_writer: {str(e.original_error)[:100]}",
+                        f"Action: {decision['action']} | Reason: {decision['reason']}",
+                        0,
+                    )
+                    if decision["action"] == "return_partial" and gap_report is not None:
+                        session_state.status = "partial_failure"
+                        session_state.errors = errors
+                        self._memory.store_intermediate(session_id, "session_state", session_state.model_dump())
+                        return SessionResult(
+                            session_id=session_id,
+                            status="partial_failure",
+                            session_state=session_state,
+                            errors=errors,
+                        )
+                except Exception as react_err:
+                    logger.warning("ReAct decision point 4 failed: %s. Halting completely.", react_err)
+
             session_state.status = "permanent_failure"
             session_state.errors = errors
             self._memory.store_intermediate(session_id, "session_state", session_state.model_dump())
@@ -421,6 +616,70 @@ class OrchestratorAgent:
             "StoryWriterAgent completed: %d entries → %d stories, %d epics in %dms",
             len(gap_report.entries), len(stories), len(epics), duration_ms,
         )
+
+        # --- Decision Point 3: After Story Writer — quality issues ---
+        if self._reasoner is not None:
+            try:
+                refinement_count = sum(1 for s in stories if s.needs_refinement)
+                if refinement_count > len(stories) / 2 and len(stories) > 0:
+                    decision = await self._reasoner.decide(
+                        decision_point="after_story_writer_quality",
+                        observation=f"{refinement_count} of {len(stories)} stories need refinement",
+                        available_actions=[
+                            {"action": "return_with_warning", "description": "Return stories as-is with quality warning"},
+                            {"action": "return_normal", "description": "Return without special warning"},
+                        ],
+                    )
+                    self._log_agent_action(
+                        session_id, "ReActReasoner",
+                        f"Decision point: after_story_writer_quality | Observation: {refinement_count} of {len(stories)} stories need refinement",
+                        f"Action: {decision['action']} | Reason: {decision['reason']}",
+                        0,
+                    )
+                    if decision["action"] == "return_with_warning":
+                        errors.append({"step": "react_warning", "message": f"Quality concern: {refinement_count}/{len(stories)} stories need refinement"})
+
+                if len(epics) == 0 and len(stories) > 0:
+                    decision = await self._reasoner.decide(
+                        decision_point="after_story_writer_no_epics",
+                        observation="Stories generated but no epics formed (no shared tags)",
+                        available_actions=[
+                            {"action": "return_ungrouped", "description": "Return stories without epic grouping"},
+                            {"action": "return_single_epic", "description": "Group all stories under a single generic epic"},
+                        ],
+                    )
+                    self._log_agent_action(
+                        session_id, "ReActReasoner",
+                        f"Decision point: after_story_writer_no_epics | Observation: Stories generated but no epics formed",
+                        f"Action: {decision['action']} | Reason: {decision['reason']}",
+                        0,
+                    )
+                    if decision["action"] == "return_single_epic":
+                        epics = [Epic(epic_title="General", stories=list(stories))]
+                        serialization_result = self._story_writer.serialize_output(epics, session_id)
+                        story_output = serialization_result.output
+            except Exception as e:
+                logger.warning("ReAct decision point 3 failed: %s. Continuing normally.", e)
+
+        # --- Decision Point 5 (continued): Add conflict summary to metadata if requested ---
+        if conflict_summary_requested and story_output is not None:
+            conflict_entries = [
+                entry for entry in gap_report.entries
+                if entry.classification == "conflict"
+            ]
+            conflict_details = [
+                {
+                    "item_text": entry.item.text[:100],
+                    "similar_ticket_id": entry.similar_ticket_id,
+                    "similarity_score": entry.similarity_score,
+                }
+                for entry in conflict_entries
+            ]
+            errors.append({
+                "step": "react_conflict_summary",
+                "message": f"{len(conflict_details)} conflicts detected",
+                "conflicts": conflict_details,
+            })
 
         # Store final output (Requirement 2.4)
         session_state.story_output = story_output
