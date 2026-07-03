@@ -240,8 +240,10 @@ class OrchestratorAgent:
 
         # --- Decision Point 1: After Parser — empty or few items ---
         if self._reasoner is not None:
+            dp1_triggered = False
             try:
                 if len(extraction_result.items) == 0:
+                    dp1_triggered = True
                     decision = await self._reasoner.decide(
                         decision_point="after_parser_empty",
                         observation=f"Parser extracted 0 items from {len(non_backlog_docs)} documents",
@@ -269,6 +271,7 @@ class OrchestratorAgent:
                             metadata={"react_note": "Halted: no actionable items found after parsing"},
                         )
                 elif len(extraction_result.items) < 3:
+                    dp1_triggered = True
                     decision = await self._reasoner.decide(
                         decision_point="after_parser_few_items",
                         observation=f"Parser extracted only {len(extraction_result.items)} items (low count)",
@@ -287,6 +290,13 @@ class OrchestratorAgent:
                         errors.append({"step": "react_warning", "message": "Low item count — results may be incomplete"})
             except Exception as e:
                 logger.warning("ReAct decision point 1 failed: %s. Continuing normally.", e)
+            if not dp1_triggered:
+                self._log_agent_action(
+                    session_id, "ReActReasoner",
+                    "Decision point: after_parser | Condition: normal (items >= 3, no errors)",
+                    "Skipped: no abnormal condition detected",
+                    0,
+                )
 
         # NOTE: Extracted items are stored in Long-Term Memory AFTER gap detection
         # to avoid self-matching during duplicate analysis.
@@ -405,8 +415,10 @@ class OrchestratorAgent:
 
         # --- Decision Point 2: After Gap Detection — all or mostly duplicates ---
         if self._reasoner is not None:
+            dp2_triggered = False
             try:
                 if gap_report.total_duplicates == len(gap_report.entries) and len(gap_report.entries) > 0:
+                    dp2_triggered = True
                     decision = await self._reasoner.decide(
                         decision_point="after_gap_all_duplicates",
                         observation=f"All {len(gap_report.entries)} items are duplicates of existing backlog tickets",
@@ -434,6 +446,7 @@ class OrchestratorAgent:
                             metadata={"react_note": "Halted: all items are duplicates of existing backlog"},
                         )
                 elif len(gap_report.entries) > 0 and gap_report.total_duplicates / max(len(gap_report.entries), 1) > 0.8:
+                    dp2_triggered = True
                     dup_pct = int(gap_report.total_duplicates / len(gap_report.entries) * 100)
                     decision = await self._reasoner.decide(
                         decision_point="after_gap_mostly_duplicates",
@@ -453,10 +466,18 @@ class OrchestratorAgent:
                         errors.append({"step": "react_warning", "message": f"High duplicate rate ({dup_pct}%) — most items already in backlog"})
             except Exception as e:
                 logger.warning("ReAct decision point 2 failed: %s. Continuing normally.", e)
+            if not dp2_triggered:
+                self._log_agent_action(
+                    session_id, "ReActReasoner",
+                    "Decision point: after_gap_detection | Condition: normal (mixed classifications)",
+                    "Skipped: no abnormal condition detected",
+                    0,
+                )
 
         # --- Decision Point 5: Conflicts detected ---
         conflict_summary_requested = False
-        if self._reasoner is not None and gap_report.total_conflicts > 0:
+        conflict_rate = gap_report.total_conflicts / max(len(gap_report.entries), 1)
+        if self._reasoner is not None and gap_report.total_conflicts > 0 and conflict_rate > 0.2:
             try:
                 decision = await self._reasoner.decide(
                     decision_point="conflicts_detected",
@@ -476,6 +497,14 @@ class OrchestratorAgent:
                     conflict_summary_requested = True
             except Exception as e:
                 logger.warning("ReAct decision point 5 failed: %s. Continuing normally.", e)
+        elif self._reasoner is not None and gap_report.total_conflicts > 0:
+            # Conflicts exist but below 20% threshold — skip reasoning
+            self._log_agent_action(
+                session_id, "ReActReasoner",
+                f"Decision point: conflicts_detected | Condition: {gap_report.total_conflicts} conflicts ({conflict_rate*100:.0f}%), below 20% threshold",
+                "Skipped: conflict rate below threshold",
+                0,
+            )
 
         # Now store extracted items in Long-Term Memory for future sessions
         if extraction_result.items:
@@ -619,9 +648,11 @@ class OrchestratorAgent:
 
         # --- Decision Point 3: After Story Writer — quality issues ---
         if self._reasoner is not None:
+            dp3_triggered = False
             try:
                 refinement_count = sum(1 for s in stories if s.needs_refinement)
                 if refinement_count > len(stories) / 2 and len(stories) > 0:
+                    dp3_triggered = True
                     decision = await self._reasoner.decide(
                         decision_point="after_story_writer_quality",
                         observation=f"{refinement_count} of {len(stories)} stories need refinement",
@@ -640,6 +671,7 @@ class OrchestratorAgent:
                         errors.append({"step": "react_warning", "message": f"Quality concern: {refinement_count}/{len(stories)} stories need refinement"})
 
                 if len(epics) == 0 and len(stories) > 0:
+                    dp3_triggered = True
                     decision = await self._reasoner.decide(
                         decision_point="after_story_writer_no_epics",
                         observation="Stories generated but no epics formed (no shared tags)",
@@ -660,6 +692,13 @@ class OrchestratorAgent:
                         story_output = serialization_result.output
             except Exception as e:
                 logger.warning("ReAct decision point 3 failed: %s. Continuing normally.", e)
+            if not dp3_triggered:
+                self._log_agent_action(
+                    session_id, "ReActReasoner",
+                    "Decision point: after_story_writer | Condition: normal (quality acceptable)",
+                    "Skipped: no abnormal condition detected",
+                    0,
+                )
 
         # --- Decision Point 5 (continued): Add conflict summary to metadata if requested ---
         if conflict_summary_requested and story_output is not None:

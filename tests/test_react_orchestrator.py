@@ -1007,3 +1007,190 @@ class TestReActReasoner:
             [{"action": "safe_default", "description": "d1"}],
         )
         assert result["action"] == "safe_default"
+
+
+
+# ===========================================================================
+# Happy Path — No Reasoning Triggered
+# ===========================================================================
+
+class TestHappyPathNoReasoning:
+    """Verify reasoning is NOT called when pipeline runs normally."""
+
+    @pytest.fixture
+    def sample_items_many(self):
+        """Create 5+ extracted items for a normal run."""
+        return [
+            ExtractedItem(
+                item_type="feature_request",
+                text=f"Feature request number {i} with sufficient detail for processing",
+                source_chunk_index=i,
+                confidence=0.9,
+                tags=["ui"] if i % 2 == 0 else ["backend"],
+            )
+            for i in range(6)
+        ]
+
+    @pytest.fixture
+    def mock_parser_many(self, sample_items_many):
+        """Parser returning 6 items (well above threshold)."""
+        parser = MagicMock()
+        parser.parse_documents = AsyncMock(
+            return_value=ExtractionResult(items=sample_items_many, errors=[])
+        )
+        return parser
+
+    @pytest.fixture
+    def mock_gap_detector_mixed(self, sample_items_many):
+        """Gap detector returning a mix: some new, 1 conflict (<20%)."""
+        entries = []
+        for i, item in enumerate(sample_items_many):
+            if i == 0:
+                # 1 conflict out of 6 = ~16.7%, below 20% threshold
+                entries.append(
+                    GapReportEntry(
+                        item=item,
+                        classification="conflict",
+                        confidence=0.7,
+                        similarity_score=0.65,
+                        similar_ticket_id="TICKET-99",
+                    )
+                )
+            else:
+                entries.append(
+                    GapReportEntry(item=item, classification="new", confidence=1.0)
+                )
+        report = GapReport(
+            entries=entries,
+            total_new=5,
+            total_duplicates=0,
+            total_conflicts=1,
+            total_unprocessed=0,
+        )
+        detector = MagicMock()
+        detector.analyze_gaps = AsyncMock(return_value=report)
+        return detector
+
+    @pytest.fixture
+    def good_stories(self, sample_items_many):
+        """Stories that are all good quality (none needing refinement)."""
+        return [
+            UserStory(
+                title=f"Story {i}",
+                user_story=f"As a user, I want feature {i}, so that I get benefit {i}",
+                acceptance_criteria=[
+                    AcceptanceCriterion(description=f"Criterion A for story {i}"),
+                    AcceptanceCriterion(description=f"Criterion B for story {i}"),
+                ],
+                tags=["ui"] if i % 2 == 0 else ["backend"],
+                needs_refinement=False,
+            )
+            for i in range(6)
+        ]
+
+    @pytest.fixture
+    def good_epics(self, good_stories):
+        """Epics formed normally (at least 1 epic)."""
+        return [
+            Epic(epic_title="UI Features", stories=[s for s in good_stories if "ui" in s.tags]),
+            Epic(epic_title="Backend Work", stories=[s for s in good_stories if "backend" in s.tags]),
+        ]
+
+    @pytest.fixture
+    def mock_story_writer_good(self, good_stories, good_epics):
+        """Story writer producing good quality output."""
+        output = StoryOutput(
+            index=[
+                {"epic_title": "UI Features", "story_count": 3},
+                {"epic_title": "Backend Work", "story_count": 3},
+            ],
+            epics=good_epics,
+            metadata=OutputMetadata(
+                session_id="test-react-session",
+                timestamp=datetime.now(timezone.utc),
+            ),
+        )
+        writer = MagicMock()
+        writer.generate_stories = AsyncMock(return_value=good_stories)
+        writer.group_into_epics = MagicMock(return_value=good_epics)
+        writer.serialize_output = MagicMock(
+            return_value=SerializationResult(output=output, errors=[])
+        )
+        return writer
+
+    async def test_normal_run_skips_reasoning(
+        self, mock_parser_many, mock_gap_detector_mixed, mock_story_writer_good,
+        mock_memory, mock_reasoning_llm, sample_session_inputs
+    ):
+        """When parser finds many items, gap detection is mixed, stories are good — no reasoning calls."""
+        orchestrator = _create_orchestrator(
+            mock_parser_many, mock_gap_detector_mixed, mock_story_writer_good,
+            mock_memory, mock_reasoning_llm,
+        )
+        result = await orchestrator.run_session(sample_session_inputs)
+
+        # Pipeline should complete successfully
+        assert result.output is not None
+
+        # Reasoning LLM should NOT have been called at all
+        mock_reasoning_llm.generate.assert_not_called()
+
+    async def test_few_conflicts_below_threshold_skips_reasoning(
+        self, mock_parser_many, mock_story_writer_good,
+        mock_memory, mock_reasoning_llm, sample_session_inputs
+    ):
+        """When conflicts exist but are below 20%, reasoning is skipped."""
+        # 10 items, 1 conflict = 10% conflict rate — below 20%
+        items = [
+            ExtractedItem(
+                item_type="feature_request",
+                text=f"Feature {i} with enough text to be valid",
+                source_chunk_index=i,
+                confidence=0.9,
+                tags=["ui"],
+            )
+            for i in range(10)
+        ]
+        entries = []
+        for i, item in enumerate(items):
+            if i == 0:
+                entries.append(
+                    GapReportEntry(
+                        item=item,
+                        classification="conflict",
+                        confidence=0.7,
+                        similarity_score=0.6,
+                        similar_ticket_id="TICKET-1",
+                    )
+                )
+            else:
+                entries.append(
+                    GapReportEntry(item=item, classification="new", confidence=1.0)
+                )
+        report = GapReport(
+            entries=entries,
+            total_new=9,
+            total_duplicates=0,
+            total_conflicts=1,
+            total_unprocessed=0,
+        )
+        mock_gap_detector = MagicMock()
+        mock_gap_detector.analyze_gaps = AsyncMock(return_value=report)
+
+        # Parser returns 10 items
+        mock_parser = MagicMock()
+        mock_parser.parse_documents = AsyncMock(
+            return_value=ExtractionResult(items=items, errors=[])
+        )
+
+        orchestrator = _create_orchestrator(
+            mock_parser, mock_gap_detector, mock_story_writer_good,
+            mock_memory, mock_reasoning_llm,
+        )
+        result = await orchestrator.run_session(sample_session_inputs)
+
+        # Pipeline completes
+        assert result.output is not None
+
+        # Reasoning LLM NOT called — all conditions are below thresholds
+        mock_reasoning_llm.generate.assert_not_called()

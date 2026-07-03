@@ -203,3 +203,15 @@ The Orchestrator uses LLM-driven reasoning at 5 decision points within the seque
 - Every LLM call wrapped in try/except — failures never break the pipeline
 - `SessionResult` has a `metadata` dict for ReAct notes (e.g., halt reasons)
 - `main.py` passes the same LLM tool used by agents as the reasoning LLM (when enabled)
+
+### Trigger Conditions (reasoning only fires on abnormal paths)
+
+| Decision Point | Triggers When | Skips When |
+|---|---|---|
+| After Parser | 0 items extracted OR <3 items | ≥3 items and no errors |
+| After Gap Detection | 100% duplicates OR >80% duplicates | Mixed classifications |
+| After Story Writer | >50% need refinement OR 0 epics | ≤50% refinement AND epics > 0 |
+| Permanent Error | Always | Never (always abnormal) |
+| Conflicts Detected | >20% of items are conflicts | ≤20% conflict rate |
+
+All skip/trigger decisions are logged to AuditLog for observability.
