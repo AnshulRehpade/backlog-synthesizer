@@ -46,16 +46,9 @@ class TestPyMuPDFDocumentParser:
         with pytest.raises(PermanentToolError, match="Failed to open PDF"):
             parser.pdf_to_text(b"corrupted data")
 
-    def test_chunk_text_splits_correctly(self):
+    def test_chunk_text_removed_from_protocol(self):
+        """chunk_text was removed — chunking is handled by ParserAgent internally."""
         from backlog_synthesizer.tools.document_parsing import PyMuPDFDocumentParser
 
         parser = PyMuPDFDocumentParser()
-        text = "one two three four five six seven eight nine"
-
-        chunks = parser.chunk_text(text, max_tokens=5, overlap=2)
-
-        # step = 5 - 2 = 3, so starts at 0, 3, 6
-        assert len(chunks) == 3
-        assert chunks[0] == "one two three four five"
-        assert chunks[1] == "four five six seven eight"
-        assert chunks[2] == "seven eight nine"
+        assert not hasattr(parser, "chunk_text")

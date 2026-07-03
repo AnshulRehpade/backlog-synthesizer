@@ -1,8 +1,10 @@
 """Concrete implementation of the DocumentParsingTool interface.
 
-Uses PyMuPDF (fitz) for PDF-to-text conversion and whitespace-based
-tokenization for text chunking. All library-specific exceptions are
-translated to interface-defined ToolError subtypes before propagating.
+Uses PyMuPDF (fitz) for PDF-to-text conversion. All library-specific
+exceptions are translated to interface-defined ToolError subtypes.
+
+Note: Text chunking is handled internally by ParserAgent using tiktoken,
+not by this tool. Chunking is pure in-memory computation, not external I/O.
 """
 
 from __future__ import annotations
@@ -64,51 +66,3 @@ class PyMuPDFDocumentParser:
             ) from e
         finally:
             doc.close()
-
-    def chunk_text(self, text: str, max_tokens: int, overlap: int) -> list[str]:
-        """Split text into overlapping chunks using whitespace tokenization.
-
-        Tokens are defined by splitting on whitespace. Each chunk contains
-        at most `max_tokens` tokens, and consecutive chunks share `overlap`
-        tokens.
-
-        Args:
-            text: The input text to chunk.
-            max_tokens: Maximum number of tokens per chunk.
-            overlap: Number of overlapping tokens between consecutive chunks.
-
-        Returns:
-            List of text chunks. Returns an empty list if text is empty.
-
-        Raises:
-            PermanentToolError: If parameters are invalid.
-        """
-        if max_tokens <= 0:
-            raise PermanentToolError(
-                f"max_tokens must be positive, got {max_tokens}", original_error=None
-            )
-        if overlap < 0:
-            raise PermanentToolError(
-                f"overlap must be non-negative, got {overlap}", original_error=None
-            )
-        if overlap >= max_tokens:
-            raise PermanentToolError(
-                f"overlap ({overlap}) must be less than max_tokens ({max_tokens})",
-                original_error=None,
-            )
-
-        tokens = text.split()
-        if not tokens:
-            return []
-
-        chunks: list[str] = []
-        step = max_tokens - overlap
-        start = 0
-
-        while start < len(tokens):
-            end = min(start + max_tokens, len(tokens))
-            chunk_tokens = tokens[start:end]
-            chunks.append(" ".join(chunk_tokens))
-            start += step
-
-        return chunks

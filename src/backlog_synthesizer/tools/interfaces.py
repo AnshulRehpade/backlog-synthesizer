@@ -21,8 +21,13 @@ class SearchResult:
 class DocumentParsingTool(Protocol):
     """Interface for document parsing operations.
 
-    Provides PDF-to-text conversion and text chunking capabilities.
+    Provides PDF-to-text conversion.
     Implementations must translate internal exceptions into ToolError types.
+
+    Note: Text chunking is NOT part of this interface. Chunking is a pure
+    in-memory computation (no external I/O) and is handled internally by
+    ParserAgent using tiktoken. The Protocol pattern is reserved for
+    external dependencies that may need swapping (PDF libraries, APIs, etc.).
     """
 
     def pdf_to_text(self, content: bytes) -> str:
@@ -36,22 +41,6 @@ class DocumentParsingTool(Protocol):
 
         Raises:
             ToolError: If parsing fails.
-        """
-        ...
-
-    def chunk_text(self, text: str, max_tokens: int, overlap: int) -> list[str]:
-        """Split text into overlapping chunks.
-
-        Args:
-            text: The input text to chunk.
-            max_tokens: Maximum number of tokens per chunk.
-            overlap: Number of overlapping tokens between consecutive chunks.
-
-        Returns:
-            List of text chunks.
-
-        Raises:
-            ToolError: If chunking fails.
         """
         ...
 
