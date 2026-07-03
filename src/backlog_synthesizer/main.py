@@ -94,6 +94,24 @@ def create_pipeline(config: PipelineConfig | None = None) -> OrchestratorAgent:
     vector_search_tool = config.create_vector_search_tool()
     llm_tool = config.create_llm_tool()
 
+    # Create few-shot store (if enabled)
+    few_shot_store = None
+    if config.few_shot_enabled:
+        from backlog_synthesizer.evaluation.few_shot_store import FewShotStore
+
+        try:
+            few_shot_vector_search = config.create_vector_search_tool()
+            few_shot_store = FewShotStore(
+                embedding_tool=embedding_tool,
+                vector_search_tool=few_shot_vector_search,
+            )
+            few_shot_store.index_golden_dataset()
+        except Exception as e:
+            logger.warning(
+                "Failed to initialize few-shot store: %s. Continuing without.", e
+            )
+            few_shot_store = None
+
     # Create Memory Engine components
     short_term = ShortTermMemory()
     audit_log = AuditLog()
@@ -108,13 +126,18 @@ def create_pipeline(config: PipelineConfig | None = None) -> OrchestratorAgent:
     )
 
     # Create agents
-    parser = ParserAgent(parsing_tool=parsing_tool, llm_tool=llm_tool, tokenizer_model=config.tokenizer_model)
+    parser = ParserAgent(
+        parsing_tool=parsing_tool,
+        llm_tool=llm_tool,
+        tokenizer_model=config.tokenizer_model,
+        few_shot_store=few_shot_store,
+    )
     gap_detector = GapDetectionAgent(
         embedding_tool=embedding_tool,
         vector_search_tool=vector_search_tool,
         llm_tool=llm_tool,
     )
-    story_writer = StoryWriterAgent(llm_tool=llm_tool)
+    story_writer = StoryWriterAgent(llm_tool=llm_tool, few_shot_store=few_shot_store)
 
     # Create orchestrator
     orchestrator = OrchestratorAgent(

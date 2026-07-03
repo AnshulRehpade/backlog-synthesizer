@@ -126,7 +126,8 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 - **tiktoken-based tokenizer** for accurate token counting in chunking (configurable via TOKENIZER_MODEL)
 - **OpenTelemetry observability** — tracing (per-agent spans), metrics (token usage, latency, cost estimation), session replay (JSON in runs/)
 - **Evaluation framework** — CLI with `run`/`compare` commands, 20 golden entries, regression detection, confidence intervals
-- 442 tests passing (property-based + unit + integration)
+- **Dynamic few-shot prompting** — FewShotStore indexes golden examples, injects semantically similar examples into Parser and Story Writer prompts
+- 460 tests passing (property-based + unit + integration)
 - CI pipeline (GitHub Actions with coverage enforcement)
 - CLI entry points (`demo.py` and `python -m backlog_synthesizer.main`)
 

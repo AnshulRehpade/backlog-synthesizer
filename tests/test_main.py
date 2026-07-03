@@ -254,6 +254,7 @@ class TestCreatePipeline:
         mock_config.create_llm_tool.return_value = MagicMock()
         mock_config.tokenizer_model = "cl100k_base"
         mock_config.react_reasoning_enabled = True
+        mock_config.few_shot_enabled = True
 
         orchestrator = create_pipeline(config=mock_config)
 
@@ -261,7 +262,8 @@ class TestCreatePipeline:
         # Verify tools were created from config
         mock_config.create_document_parser.assert_called_once()
         mock_config.create_embedding_tool.assert_called_once()
-        mock_config.create_vector_search_tool.assert_called_once()
+        # Vector search tool is created twice: once for gap detection, once for few-shot store
+        assert mock_config.create_vector_search_tool.call_count == 2
         mock_config.create_llm_tool.assert_called_once()
 
 

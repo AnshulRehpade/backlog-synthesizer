@@ -80,6 +80,9 @@ class PipelineConfig:
     eval_f1_threshold: float = 0.60
     eval_regression_threshold: float = 0.05
 
+    # Few-shot prompting
+    few_shot_enabled: bool = True
+
     # Observability
     otel_enabled: bool = True
     runs_dir: str = "runs"
@@ -188,6 +191,10 @@ class PipelineConfig:
         if eval_regression_threshold:
             env_values["eval_regression_threshold"] = float(eval_regression_threshold)
 
+        few_shot_enabled = os.environ.get("FEW_SHOT_ENABLED")
+        if few_shot_enabled is not None:
+            env_values["few_shot_enabled"] = few_shot_enabled.lower() in ("true", "1", "yes")
+
         # Load config file overrides
         resolved_path = config_path or os.environ.get("BACKLOG_SYNTHESIZER_CONFIG")
         if resolved_path:
@@ -248,6 +255,7 @@ class PipelineConfig:
             "eval_keyword_threshold",
             "eval_f1_threshold",
             "eval_regression_threshold",
+            "few_shot_enabled",
         }
 
         return {k: v for k, v in data.items() if k in valid_keys}

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from html.parser import HTMLParser
+from typing import Any
 
 import tiktoken
 
@@ -85,10 +86,12 @@ class ParserAgent:
         parsing_tool: DocumentParsingTool,
         llm_tool: LLMGenerationTool,
         tokenizer_model: str = "cl100k_base",
+        few_shot_store: Any | None = None,
     ):
         self._parsing_tool = parsing_tool
         self._llm_tool = llm_tool
         self._tokenizer = tiktoken.get_encoding(tokenizer_model)
+        self._few_shot_store = few_shot_store
 
     async def parse_documents(self, documents: list[InputDocument]) -> ExtractionResult:
         """Parse all input documents and extract structured items.
@@ -200,7 +203,32 @@ class ParserAgent:
         )
 
         for chunk in chunks:
-            prompt = f"Analyze this meeting transcript chunk and extract items:\n\n{chunk.text}"
+            # Dynamic few-shot examples (if store available)
+            few_shot_section = ""
+            if self._few_shot_store is not None:
+                try:
+                    examples = self._few_shot_store.get_similar_parser_examples(
+                        chunk.text, top_k=2
+                    )
+                    if examples:
+                        few_shot_section = "\n\n## Examples of good extractions:\n"
+                        for i, ex in enumerate(examples, 1):
+                            few_shot_section += (
+                                f"\nExample {i} (topic: {ex.description}):\n"
+                                f'Input: "{ex.transcript[:200]}"\n'
+                                f"Output: [{{\"item_type\": \"feature_request\", \"text\": \"...\", \"confidence\": 0.9, ...}}]\n"
+                            )
+                        few_shot_section += "\n## Now extract from this input:\n"
+                        logger.debug(
+                            "Few-shot: using examples %s",
+                            [ex.id for ex in examples],
+                        )
+                    else:
+                        logger.debug("Few-shot: skipped (low similarity)")
+                except Exception as e:
+                    logger.warning("Few-shot retrieval failed: %s", e)
+
+            prompt = f"{few_shot_section}Analyze this meeting transcript chunk and extract items:\n\n{chunk.text}"
             try:
                 response = self._llm_tool.generate(prompt, system_prompt=system_prompt)
             except ToolError:

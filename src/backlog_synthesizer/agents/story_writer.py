@@ -12,6 +12,7 @@ import logging
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -259,13 +260,15 @@ class StoryWriterAgent:
     Requirements: 5.1, 5.2, 5.3, 5.6
     """
 
-    def __init__(self, llm_tool: LLMGenerationTool) -> None:
+    def __init__(self, llm_tool: LLMGenerationTool, few_shot_store: Any | None = None) -> None:
         """Initialize StoryWriterAgent with tool dependencies.
 
         Args:
             llm_tool: Tool for LLM text generation.
+            few_shot_store: Optional FewShotStore for dynamic few-shot prompting.
         """
         self._llm_tool = llm_tool
+        self._few_shot_store = few_shot_store
 
     async def generate_stories(
         self, items: list[GapReportEntry]
@@ -322,6 +325,26 @@ class StoryWriterAgent:
 
         # Build prompt and call LLM
         prompt = _build_prompt(item)
+
+        # Inject few-shot examples if available
+        if self._few_shot_store is not None:
+            try:
+                examples = self._few_shot_store.get_similar_story_examples(
+                    item.text, top_k=2
+                )
+                if examples:
+                    examples_section = "\n\n## Examples of high quality user stories:\n"
+                    for i, ex in enumerate(examples, 1):
+                        examples_section += (
+                            f"\nExample {i} (topic: {ex.description}):\n"
+                            f'Input item: "{ex.transcript[:150]}"\n'
+                            f'Output: {{"title": "...", "user_story": "As a...", '
+                            f'"acceptance_criteria": [...], "tags": [...]}}\n'
+                        )
+                    examples_section += "\n## Now generate a story for the item above:\n"
+                    prompt = examples_section + prompt
+            except Exception as e:
+                logger.warning("Story Writer few-shot retrieval failed: %s", e)
 
         try:
             response = await asyncio.to_thread(
