@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import math
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -38,6 +40,11 @@ def main() -> None:
         "--dry-run",
         action="store_true",
         help="Validate golden entries load correctly without running pipeline",
+    )
+    run_parser.add_argument(
+        "--save-baseline",
+        action="store_true",
+        help="Save current results as the regression baseline",
     )
 
     # compare command
@@ -111,12 +118,104 @@ def compute_keyword_overlap(generated_tokens: list[str], expected_tokens: list[s
     return matches / len(expected_lower)
 
 
+async def _evaluate_entry(
+    orchestrator, entry: GoldenDatasetEntry, threshold: float
+) -> EvalRunResult:
+    """Run a single golden entry through the real pipeline and score it.
+
+    Args:
+        orchestrator: The OrchestratorAgent instance.
+        entry: The golden dataset entry to evaluate.
+        threshold: Keyword overlap threshold for pass/fail.
+
+    Returns:
+        An EvalRunResult with computed metrics.
+    """
+    from backlog_synthesizer.models.inputs import (
+        BacklogTicket,
+        DocumentType,
+        InputDocument,
+        SessionInputs,
+    )
+    import uuid
+
+    # Build session inputs from the golden entry
+    content = entry.transcript.encode("utf-8") if entry.transcript else b""
+    documents = []
+    if content:
+        documents.append(InputDocument(
+            filename="eval_transcript.txt",
+            document_type=DocumentType.TRANSCRIPT_TXT,
+            content=content,
+            size_bytes=len(content),
+        ))
+
+    # Parse existing_backlog into BacklogTicket objects
+    backlog_tickets = []
+    for ticket_data in entry.existing_backlog:
+        try:
+            ticket = BacklogTicket.model_validate(ticket_data)
+            backlog_tickets.append(ticket)
+        except Exception:
+            pass  # Skip invalid tickets
+
+    inputs = SessionInputs(
+        session_id=f"eval-{uuid.uuid4().hex[:8]}",
+        documents=documents,
+        backlog_tickets=backlog_tickets,
+    )
+
+    # Run pipeline
+    result = await orchestrator.run_session(inputs)
+
+    # Count generated stories
+    stories_generated = 0
+    if result.output:
+        for epic in result.output.epics:
+            stories_generated += len(epic.stories)
+
+    # Compute keyword overlap between generated story text and transcript
+    generated_tokens = []
+    if result.output:
+        for epic in result.output.epics:
+            for story in epic.stories:
+                generated_tokens.extend(story.user_story.split())
+                for ac in story.acceptance_criteria:
+                    generated_tokens.extend(ac.description.split())
+
+    # Expected tokens from the transcript (what should be captured)
+    expected_tokens = entry.transcript.split() if entry.transcript else []
+
+    keyword_score = compute_keyword_overlap(generated_tokens, expected_tokens)
+
+    # Determine pass/fail
+    passed = True
+    failure_reason = None
+
+    if keyword_score < threshold:
+        passed = False
+        failure_reason = f"keyword_overlap {keyword_score:.3f} below threshold {threshold}"
+
+    # Check story count expectations (if provided)
+    if entry.expected_stories_count > 0 and stories_generated == 0 and entry.transcript:
+        passed = False
+        failure_reason = f"Expected {entry.expected_stories_count} stories, got 0"
+
+    return EvalRunResult(
+        golden_id=entry.id,
+        keyword_overlap=keyword_score,
+        stories_generated=stories_generated,
+        passed=passed,
+        failure_reason=failure_reason,
+    )
+
+
 def run_evaluation(args: argparse.Namespace) -> None:
     """Execute evaluation against the golden dataset.
 
     In dry-run mode, validates that entries load correctly.
-    In normal mode, computes keyword overlap scores between transcript
-    tokens and expected metadata for structural validation.
+    In normal mode, instantiates the real pipeline, runs each golden entry
+    through OrchestratorAgent.run_session(), and scores using keyword overlap.
 
     Args:
         args: Parsed CLI arguments.
@@ -133,44 +232,47 @@ def run_evaluation(args: argparse.Namespace) -> None:
             print(f"  {entry.id}: {entry.description} (tags: {', '.join(entry.tags)})")
         sys.exit(0)
 
-    # Run structural evaluation (no LLM calls)
+    # Initialize real pipeline
+    try:
+        from backlog_synthesizer.main import create_pipeline
+        orchestrator = create_pipeline()
+    except Exception as e:
+        print(f"Pipeline initialization failed: {e}", file=sys.stderr)
+        print("Use --dry-run for validation without API calls.", file=sys.stderr)
+        sys.exit(1)
+
+    # Run evaluation through real pipeline
     results: list[EvalRunResult] = []
     any_failed = False
+    total_latency_ms = 0
 
     for entry in entries:
-        # For structural testing, we compute keyword overlap between
-        # the transcript tokens and the entry description tokens.
-        # This validates the pipeline structure without requiring API calls.
-        transcript_tokens = entry.transcript.split() if entry.transcript else []
-        description_tokens = entry.description.split() if entry.description else []
+        print(f"  Evaluating {entry.id}...", end=" ", flush=True)
+        start_time = time.time()
 
-        # Compute overlap score
-        if entry.expected_stories_count == 0 and not entry.transcript:
-            # Edge case: empty transcript should produce 0 stories — pass automatically
-            score = 1.0
-        elif entry.expected_stories_count == 0:
-            # No-action transcripts — score based on structure being correctly empty
-            score = 1.0
-        else:
-            score = compute_keyword_overlap(transcript_tokens, description_tokens)
+        try:
+            result = asyncio.run(_evaluate_entry(orchestrator, entry, args.threshold_keyword))
+            duration_ms = int((time.time() - start_time) * 1000)
+            total_latency_ms += duration_ms
 
-        passed = score >= args.threshold_keyword
-        failure_reason = None
-        if not passed:
-            failure_reason = (
-                f"keyword_overlap {score:.3f} below threshold {args.threshold_keyword}"
-            )
-            any_failed = True
+            if not result.passed:
+                any_failed = True
+            results.append(result)
 
-        results.append(
-            EvalRunResult(
+            status = "✅" if result.passed else "❌"
+            print(f"{status} ({result.keyword_overlap:.3f}, {duration_ms}ms)")
+        except Exception as e:
+            duration_ms = int((time.time() - start_time) * 1000)
+            total_latency_ms += duration_ms
+            print(f"❌ ERROR: {e}")
+            results.append(EvalRunResult(
                 golden_id=entry.id,
-                keyword_overlap=score,
-                stories_generated=entry.expected_stories_count,
-                passed=passed,
-                failure_reason=failure_reason,
-            )
-        )
+                keyword_overlap=0.0,
+                stories_generated=0,
+                passed=False,
+                failure_reason=str(e),
+            ))
+            any_failed = True
 
     # Compute aggregate stats
     scores = [r.keyword_overlap for r in results]
@@ -234,6 +336,13 @@ def run_evaluation(args: argparse.Namespace) -> None:
     }
     saved_path = save_results(save_data)
     print(f"\nResults saved to: {saved_path}")
+
+    # Save baseline if requested
+    if hasattr(args, 'save_baseline') and args.save_baseline:
+        baseline_path = Path("evaluation/history/baseline_results.json")
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        baseline_path.write_text(json.dumps(save_data, indent=2))
+        print(f"Baseline saved to: {baseline_path}")
 
     if any_failed:
         sys.exit(1)
