@@ -83,13 +83,12 @@ Story Writer needs Gap Detection's output to know which items are NEW vs DUPLICA
 - Story Writer: multiple stories generated concurrently via `asyncio.gather()`
 - Gap Detection: items processed concurrently via individual `asyncio.wait_for()` with timeout
 
-### Three-level fallback in Gap Detection
+### Two-level fallback in Gap Detection
 
-1. **Tag + Status filter** → search only active tickets sharing the item's tag
-2. **Status filter only** → search all non-closed tickets (if tag filter returned empty)
-3. **Unfiltered** → search entire store (if no filter support or still empty)
+1. **Combined filter (tag + status)** → search only active tickets sharing the item's tag, with closed/archived/done/cancelled excluded
+2. **Unfiltered** → search entire store (if combined filter returned empty or isn't supported)
 
-This progressively widens the search until results are found, balancing precision vs recall.
+This progressively widens the search until results are found. If the first filtered search returns results, the unfiltered fallback is never reached.
 
 ### Union-find for epic grouping
 
@@ -160,7 +159,7 @@ Stories sharing tags are grouped transitively. If A shares a tag with B, and B s
 
 - **Never run Story Writer before Gap Detection completes** — it needs the gap report to filter duplicates
 - **Never add concrete tool dependencies inside agents** — agents depend only on Protocol interfaces defined in `tools/interfaces.py`
-- **Never break the three-level fallback in Gap Detection** — tag+status → status → unfiltered. If you remove a level, large backlogs may return no results.
+- **Never break the two-level fallback in Gap Detection** — tag+status → unfiltered. If you remove the fallback, large backlogs may return no results.
 - **Never hardcode API keys or model names** — always use env vars via `PipelineConfig`
 - **Never store extracted items in Long-Term Memory before Gap Detection runs** — they'd match against themselves as duplicates (this bug was already fixed)
 - **Never use blocking I/O in async agent methods** — wrap with `asyncio.to_thread()`

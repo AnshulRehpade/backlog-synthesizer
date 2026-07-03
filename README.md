@@ -308,7 +308,7 @@ If the pipeline fails for any golden entry, the framework records the failure re
 
 ## Testing Strategy
 
-The test suite contains 326 property-based and unit tests built with **pytest**, **Hypothesis**, and **pytest-asyncio**. Tests are organized by component with dedicated property-based test files verifying structural invariants.
+The test suite contains 501 property-based and unit tests built with **pytest**, **Hypothesis**, and **pytest-asyncio** with 82% code coverage. Tests are organized by component with dedicated property-based test files verifying structural invariants.
 
 ### Test Organization
 
