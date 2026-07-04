@@ -118,6 +118,14 @@ class MemoryEngine:
         """
         return self._long_term.search_similar(query, top_k)
 
+    def purge_expired(self) -> list[str]:
+        """Purge expired entries from long-term memory.
+
+        Returns:
+            List of expired item IDs that were identified for removal.
+        """
+        return self._long_term.purge_expired()
+
     # ──────────────────────────────────────────────
     # Audit Log delegation (Requirements 6.4, 6.7)
     # ──────────────────────────────────────────────

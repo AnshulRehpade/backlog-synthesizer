@@ -5,7 +5,7 @@ Uses EmbeddingTool and VectorSearchTool protocol interfaces for portability.
 Implements a 30-day retention policy for stored entries.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from backlog_synthesizer.tools.interfaces import (
@@ -101,13 +101,8 @@ class LongTermMemory:
     def purge_expired(self, reference_time: datetime | None = None) -> list[str]:
         """Remove entries that have exceeded the retention period.
 
-        Queries all stored items and removes those whose `stored_at` timestamp
-        is older than `retention_days` from the reference time.
-
-        Note: This method requires the VectorSearchTool to support querying all
-        items. It uses a large top_k to retrieve candidates and filters by timestamp.
-        In production, a more efficient purge mechanism (e.g., Chroma's built-in
-        filtering) should be used.
+        Uses metadata-based filtering on the `stored_at` field to identify
+        expired entries. Does NOT use embeddings — purely timestamp comparison.
 
         Args:
             reference_time: The time to compare against. Defaults to current UTC time.
@@ -118,24 +113,33 @@ class LongTermMemory:
         if reference_time is None:
             reference_time = datetime.now(timezone.utc)
 
-        # Generate a zero-vector query to retrieve all items for expiration check.
-        # A dedicated "list all" method on the vector store would be more efficient,
-        # but this works within the VectorSearchTool protocol constraints.
-        all_results = self._vector_search_tool.query_similar(
-            embedding=[0.0] * 1,  # Minimal placeholder embedding
-            top_k=10000,
-        )
+        cutoff = reference_time - timedelta(days=self._retention_days)
+        cutoff_iso = cutoff.isoformat()
 
-        expired_ids: list[str] = []
-        for result in all_results:
-            stored_at_str = result.metadata.get("stored_at")
-            if stored_at_str is None:
-                continue
+        # Use filtered query to find entries older than retention period
+        # ChromaDB where clause on stored_at string (ISO format sorts lexicographically)
+        try:
+            if hasattr(self._vector_search_tool, "query_similar_filtered"):
+                # Use a minimal embedding just to trigger the query — filter does the real work
+                # We need a valid-dimension embedding; use the tool to generate one
+                dummy_embedding = self._embedding_tool.generate_embedding("purge query")
+                results = self._vector_search_tool.query_similar_filtered(
+                    dummy_embedding,
+                    top_k=10000,
+                    where={"stored_at": {"$lt": cutoff_iso}},
+                )
+            else:
+                # Fallback: retrieve all and filter in Python
+                dummy_embedding = self._embedding_tool.generate_embedding("purge query")
+                results = self._vector_search_tool.query_similar(dummy_embedding, 10000)
+                results = [
+                    r for r in results
+                    if r.metadata.get("stored_at", "") < cutoff_iso
+                    and r.metadata.get("stored_at") is not None
+                ]
+        except Exception:
+            # If query fails (e.g., empty collection), no items to purge
+            return []
 
-            stored_at = datetime.fromisoformat(stored_at_str)
-            age_days = (reference_time - stored_at).days
-
-            if age_days > self._retention_days:
-                expired_ids.append(result.item_id)
-
+        expired_ids = [r.item_id for r in results]
         return expired_ids

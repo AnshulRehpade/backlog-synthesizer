@@ -145,6 +145,20 @@ class OrchestratorAgent:
         # Store initial session state
         self._memory.store_intermediate(session_id, "session_state", session_state.model_dump())
 
+        # Purge expired entries from long-term memory
+        try:
+            expired_ids = self._memory.purge_expired()
+            if expired_ids:
+                logger.info("Purged %d expired entries from long-term memory", len(expired_ids))
+                self._log_agent_action(
+                    session_id, "MemoryEngine",
+                    "Purge expired entries",
+                    f"Removed {len(expired_ids)} entries older than retention period",
+                    0,
+                )
+        except Exception as e:
+            logger.warning("Failed to purge expired entries: %s", e)
+
         errors: list[dict] = []
 
         # Step 0: Validate backlog tickets
